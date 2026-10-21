@@ -1,0 +1,41 @@
+[
+  {
+    "fdcId": 170457,
+    "description": "Tomatoes, red, ripe, raw, year round average",
+    "url": "https://fdc.nal.usda.gov/food-search/",
+    "retrieved": "2026-10-20",
+    "per100g": {
+      "Energy": 18.0,
+      "Protein": 0.88,
+      "Carbohydrate, by difference": 3.89,
+      "Sodium, Na": 5.0,
+      "Total lipid (fat)": 0.2
+    }
+  },
+  {
+    "fdcId": 171410,
+    "description": "Oil, peanut, salad or cooking",
+    "url": "https://fdc.nal.usda.gov/food-search/",
+    "retrieved": "2026-10-20",
+    "per100g": {
+      "Energy": 884.0,
+      "Protein": 0.0,
+      "Carbohydrate, by difference": 0.0,
+      "Sodium, Na": 0.0,
+      "Total lipid (fat)": 100.0
+    }
+  },
+  {
+    "fdcId": 173468,
+    "description": "Salt, table",
+    "url": "https://fdc.nal.usda.gov/food-search/",
+    "retrieved": "2026-10-20",
+    "per100g": {
+      "Energy": 0.0,
+      "Protein": 0.0,
+      "Carbohydrate, by difference": 0.0,
+      "Sodium, Na": 38758.0,
+      "Total lipid (fat)": 0.0
+    }
+  }
+]
