@@ -5,7 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 7) {
+class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 8) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE entries(id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, kcal REAL NOT NULL, minutes INTEGER NOT NULL, protein REAL, carbs REAL, fat REAL, meal TEXT NOT NULL DEFAULT 'unspecified', sodium REAL, details TEXT NOT NULL DEFAULT '', exercise_rate REAL, exercise_rate_kind TEXT NOT NULL DEFAULT 'ACTIVE', overlap_steps INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE INDEX entries_date ON entries(date)")
@@ -15,6 +15,7 @@ class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 7
         createExerciseTables(db)
         createProfiles(db)
         createPhoneSteps(db)
+        db.execSQL("ALTER TABLE entries ADD COLUMN food_portion TEXT NOT NULL DEFAULT ''")
     }
     override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
         if (old < 7) createPhoneSteps(db)
@@ -35,6 +36,7 @@ class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 7
             db.execSQL("ALTER TABLE entries ADD COLUMN overlap_steps INTEGER NOT NULL DEFAULT 0")
             createExerciseTables(db)
         }
+        if (old < 8) db.execSQL("ALTER TABLE entries ADD COLUMN food_portion TEXT NOT NULL DEFAULT ''")
     }
     private fun createPhoneSteps(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE phone_step_days(date TEXT PRIMARY KEY, steps INTEGER NOT NULL, updated_at INTEGER NOT NULL)")
@@ -130,13 +132,19 @@ class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 7
         else food.copy(id = writableDatabase.insertOrThrow("quick_foods", null, values))
     }
     fun deleteQuickFood(food: QuickFood) { writableDatabase.delete("quick_foods", "id=?", arrayOf(food.id.toString())) }
+    fun moveQuickFoods(ids: Set<Long>, category: String) {
+        require(category.isNotBlank() && category.length <= 30)
+        val db = writableDatabase; db.beginTransaction()
+        try { quickFoods().filter { it.id in ids }.forEach { saveQuickFood(it.copy(category = category)) }; db.setTransactionSuccessful() }
+        finally { db.endTransaction() }
+    }
     private fun createMealTable(db: SQLiteDatabase) { db.execSQL("CREATE TABLE skipped_meals(date TEXT NOT NULL, meal TEXT NOT NULL, PRIMARY KEY(date,meal))") }
     fun entries(date: String? = null): List<Entry> {
         val result = mutableListOf<Entry>()
-        readableDatabase.query("entries", null, if (date == null) null else "date=?", date?.let { arrayOf(it) }, null, null, "date DESC, id DESC").use { c ->
+        readableDatabase.query("entries", arrayOf("id", "date", "kind", "name", "kcal", "minutes", "protein", "carbs", "fat", "meal", "sodium", "details", "exercise_rate", "exercise_rate_kind", "overlap_steps", "food_portion"), if (date == null) null else "date=?", date?.let { arrayOf(it) }, null, null, "date DESC, id DESC").use { c ->
             while (c.moveToNext()) result.add(Entry(c.getLong(0), c.getString(1), c.getString(2), c.getString(3), c.getDouble(4), c.getInt(5),
                 if (c.isNull(6)) null else c.getDouble(6), if (c.isNull(7)) null else c.getDouble(7), if (c.isNull(8)) null else c.getDouble(8), c.getString(9), if (c.isNull(10)) null else c.getDouble(10), c.getString(11),
-                if (c.isNull(12)) null else c.getDouble(12), c.getString(13), c.getLong(14)))
+                if (c.isNull(12)) null else c.getDouble(12), c.getString(13), c.getLong(14), c.getString(15)))
         }
         return result
     }
@@ -147,6 +155,7 @@ class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 7
         }
         values.put("meal", if (e.kind == "food") Meal.from(e.meal).key else "unspecified")
         values.put("details", e.details)
+        values.put("food_portion", e.portion)
         if (e.exerciseRate == null) values.putNull("exercise_rate") else values.put("exercise_rate", e.exerciseRate)
         values.put("exercise_rate_kind", e.exerciseRateKind); values.put("overlap_steps", e.overlapSteps)
         val db = writableDatabase

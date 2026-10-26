@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     private val muted = Color.rgb(116, 127, 117)
     private val bg = Color.rgb(246, 247, 242)
     private lateinit var store: Store
+    private lateinit var foodPhotos: FoodPhotoPicker
     private lateinit var root: LinearLayout
     private lateinit var body: LinearLayout
     private var date = LocalDate.now()
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = Store(this)
+        foodPhotos = FoodPhotoPicker(this)
         if (savedInstanceState == null) prefs.edit().putBoolean("steps_permission_waiting", false).remove("pending_steps_date").apply()
         savedInstanceState?.let { date = LocalDate.parse(it.getString("date")); tab = it.getInt("tab") }
         MealReminders.reschedule(this)
@@ -276,6 +278,7 @@ class MainActivity : ComponentActivity() {
         val item = column().apply { background = shape(bg, 12); setPadding(dp(14), dp(12), dp(14), dp(12)); setOnClickListener { entryDialog(e.kind, e) } }
         val line = row(); line.addView(text(e.name, 15f, bold = true), LinearLayout.LayoutParams(0, -2, 1f)); line.addView(text("${fmt(e.kcal)} kcal", 14f, green, true)); item.addView(line)
         item.addView(text(if (e.kind == "exercise") "${e.minutes} 分钟 · 点击编辑" else "点击编辑或删除", 11f, muted)); parent.addView(item)
+        PortionJson.decode(e.portion)?.let { item.addView(text("实际 ${FoodValues.f(it.actual)}g / 参考 ${FoodValues.f(it.basis)}g", 11f, muted)) }
         if (e.kind == "food") item.addView(text("蛋白 ${e.protein?.let { kg(it) } ?: "未填"} / 碳水 ${e.carbs?.let { kg(it) } ?: "未填"} / 脂肪 ${e.fat?.let { kg(it) } ?: "未填"} g", 11f, muted))
         if (e.kind == "food") item.addView(text("钠 ${e.sodium?.let { fmt(it) + " mg" } ?: "未填"}${if (e.details.isNotBlank()) " · 含份量 / 配方说明" else ""}", 11f, muted))
         if (e.kind == "exercise") item.addView(text("${e.exerciseRate?.let { "${if (e.exerciseRateKind == "TOTAL") "总" else "活动"}消耗 ${kg(it)} kcal/分钟 · " } ?: "直接填写 · "}重叠步数 ${e.overlapSteps}", 11f, muted))
@@ -407,9 +410,9 @@ class MainActivity : ComponentActivity() {
         c.addView(text("自动估算适用19–78岁；孕哺期及疾病相关需求请取消勾选并使用专业目标。默认维持体重，不自动设置减重缺口。已有自定义营养目标继续优先使用，清空即可恢复自动目标。", 12f, muted))
         val d = AlertDialog.Builder(this).setTitle("个人资料").setView(ScrollView(this).apply { addView(c) }).setNegativeButton("取消", null).setPositiveButton("保存并计算", null).create()
         d.setOnShowListener { d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val a = age.text.toString().toIntOrNull()
-            val h = Energy.number(height.text.toString(), 250.0)
-            val w = Energy.number(weight.text.toString(), 500.0)
+            val a = Expressions.integer(NumberInput.raw(age))?.toInt()
+            val h = Energy.number(NumberInput.raw(height), 250.0)
+            val w = Energy.number(NumberInput.raw(weight), 500.0)
             when {
                 a == null || a !in 1..120 -> age.error = "请输入1–120的整数年龄"
                 h == null || h < 100 -> height.error = "请输入100–250 cm"
@@ -427,6 +430,7 @@ class MainActivity : ComponentActivity() {
     }
     private fun settings() {
         heading("按自己的节奏", "你的数据，保存在这台设备上")
+        val foodManagement = card(); foodManagement.addView(button("管理我的菜品 · 分类 / 图片 / 配方") { startActivity(Intent(this, FoodManagerActivity::class.java)) })
         profileSettings()
         walkingSettings()
         reminderSettings()
@@ -435,7 +439,7 @@ class MainActivity : ComponentActivity() {
         c.addView(text("填写每日消耗基准，不重复包含另记的运动与步数步行。若你的基准已包含日常走路，请在步数卡片关闭该日步行计热。该基准统一用于所有日期。", 13f, muted)); space(c)
         val field = input("每日消耗（kcal）", baseline?.let { fmt(it) } ?: "", true); c.addView(field); space(c)
         c.addView(button("保存消耗基准", true) {
-            val n = Energy.number(field.text.toString(), 20000.0)
+            val n = Energy.number(NumberInput.raw(field), 20000.0)
             if (n == null) field.error = "请输入大于 0、至多 20000 的数值"
             else { prefs.edit().putFloat("baseline", n.toFloat()).putBoolean("automatic_body", false).apply(); Toast.makeText(this, "已保存并切换到手动消耗模式", Toast.LENGTH_SHORT).show(); render() }
         })
@@ -497,7 +501,7 @@ class MainActivity : ComponentActivity() {
         c.addView(text("手动数值优先保存，自动同步不会覆盖；主动刷新并确认后可恢复健康连接数据。", 12f, muted))
         val d = AlertDialog.Builder(this).setTitle("手动步数").setView(c).setNegativeButton("取消", null).setPositiveButton("保存", null).create()
         d.setOnShowListener { d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val n = count.text.toString().trim().toLongOrNull()
+            val n = Expressions.integer(NumberInput.raw(count))
             if (n == null || n !in 0..300000) count.error = "请输入0–300000整数步数"
             else { stepsJob?.cancel(); store.saveSteps(StepDay(target, n, "manual", System.currentTimeMillis(), include.isChecked)); stepsMessages[target] = "已保存手动总步数"; d.dismiss(); render() }
         } }; d.show()
@@ -709,10 +713,10 @@ class MainActivity : ComponentActivity() {
         val met = input("步行强度MET", walkingConfig().met.toString(), true)
         val cadence = input("估算步频（步/分钟）", walkingConfig().cadence.toString(), true)
         c.addView(text("步行强度（MET）", 12f, muted)); c.addView(met)
-        val presets = row(); listOf("慢走2.8" to 2.8, "中速3.8" to 3.8, "快走4.8" to 4.8).forEach { (label, value) -> presets.addView(button(label) { met.setText(value.toString()) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }; c.addView(presets)
+        val presets = row(); listOf("慢走2.8" to 2.8, "中速3.8" to 3.8, "快走4.8" to 4.8).forEach { (label, value) -> presets.addView(button(label) { NumberInput.setValue(met, value) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }; c.addView(presets)
         c.addView(text("估算步频（步/分钟，默认100，可自行校准）", 12f, muted)); c.addView(cadence)
         c.addView(button("保存步行参数", true) {
-            val m = Energy.number(met.text.toString(), 20.0); val pace = Energy.number(cadence.text.toString(), 200.0)
+            val m = Energy.number(NumberInput.raw(met), 20.0); val pace = Energy.number(NumberInput.raw(cadence), 200.0)
             when {
                 m == null || m < 1 -> met.error = "请输入1–20 MET"
                 pace == null || pace < 40 -> cadence.error = "请输入40–200步/分钟"
@@ -765,7 +769,7 @@ class MainActivity : ComponentActivity() {
         space(c, 8); c.addView(button("保存营养目标", true) {
             var valid = true
             val values = fields.map { (key, field) ->
-                val raw = field.text.toString().trim(); val n = Energy.number(raw, 5000.0)
+                val raw = NumberInput.raw(field).trim(); val n = Energy.number(raw, 5000.0)
                 if (raw.isNotEmpty() && n == null) { field.error = "请输入大于 0、至多 5000 的目标，或留空"; valid = false }
                 key to n
             }
@@ -783,87 +787,137 @@ class MainActivity : ComponentActivity() {
     }
     private fun input(hint: String, initial: String = "", numeric: Boolean = false) = EditText(this).apply {
         this.hint = hint; setText(initial); textSize = 16f; setTextColor(ink); setSingleLine(true)
-        inputType = if (numeric) InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        if (numeric) NumberInput.configure(this, initial)
         setPadding(dp(8), dp(12), dp(8), dp(12)); minHeight = dp(52)
     }
     private fun dialogBody() = column().apply { setPadding(dp(24), dp(8), dp(24), dp(8)) }
     private fun quickRecord() {
         val target = date.toString()
-        FoodLibraryUi(this, store) { selected ->
+        FoodLibraryUi(this, store, foodPhotos) { selected ->
             val n = selected.values
             entryDialog("food", draft = Entry(date = target, kind = "food", name = selected.food.name, kcal = n.kcal,
-                protein = n.protein, carbs = n.carbs, fat = n.fat, sodium = n.sodium, details = selected.details))
+                protein = n.protein, carbs = n.carbs, fat = n.fat, sodium = n.sodium, details = if (selected.asPortion() == null) selected.details else selected.food.details(), portion = selected.asPortion()?.let { PortionJson.encode(it) } ?: ""))
         }.show()
     }
     private fun entryDialog(kind: String, existing: Entry? = null, selectedMeal: Meal? = null, draft: Entry? = null) {
         if (kind == "exercise") { ExerciseUi(this, store, date.toString()) { render() }.entry(existing); return }
         val initial = existing ?: draft
         val targetDate = initial?.date ?: date.toString()
-        val c = dialogBody(); c.addView(text("$targetDate · ${if (kind == "food") "饮食摄入" else "额外运动"}", 13f, muted))
+        val priorPortion = initial?.let { PortionJson.decode(it.portion) }
+        val prior = priorPortion?.reference ?: initial?.let { EntryNutrients(it.kcal, it.protein, it.carbs, it.fat, it.sodium) }
+        val c = dialogBody(); c.isFocusableInTouchMode = true
+        c.addView(text("$targetDate · 饮食摄入", 13f, muted))
         val mealPicker = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, Meal.entries.map { it.label })
-            setSelection((selectedMeal ?: initial?.let { Meal.from(it.meal) } ?: Meal.UNSPECIFIED).ordinal)
-            minimumHeight = dp(48)
+            setSelection((selectedMeal ?: initial?.let { Meal.from(it.meal) } ?: Meal.UNSPECIFIED).ordinal); minimumHeight = dp(48)
         }
-        if (kind == "food") { c.addView(text("餐次（零食不提醒）", 12f, muted)); c.addView(mealPicker) }
-        val name = input(if (kind == "food") "食物 / 餐次，例如午餐" else "运动名称，例如慢跑", initial?.name ?: "")
-        val kcal = input("${if (kind == "food") "摄入" else "额外消耗"}热量（kcal）", initial?.let { it.kcal.toString() } ?: "", true)
-        val mins = input("运动时长（整数分钟）", existing?.minutes?.toString() ?: "", true)
-        val protein = input("蛋白质（g，可留空）", initial?.protein?.toString() ?: "", true)
-        val carbs = input("碳水化合物（g，可留空）", initial?.carbs?.toString() ?: "", true)
-        val fat = input("脂肪（g，可留空）", initial?.fat?.toString() ?: "", true)
-        val sodium = input("钠（mg，可留空）", initial?.sodium?.toString() ?: "", true)
+        c.addView(text("餐次（零食不提醒）", 12f, muted)); c.addView(mealPicker)
+        val name = input("食物 / 菜品名称", initial?.name ?: "")
+        val mode = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, listOf("直接填写本次营养总量", "按参考克数 / 实际克数换算"))
+            setSelection(if (priorPortion == null) 0 else 1); minimumHeight = dp(48)
+        }
+        val amounts = column()
+        amounts.addView(text("下面的营养数值对应“参考克数”，保存时按实际克数换算。", 12f, muted))
+        val basis = input("参考克数（g，例如100）", priorPortion?.basis?.toString() ?: "100", true)
+        val actual = input("实际食用克数（g）", priorPortion?.actual?.toString() ?: "100", true)
+        amounts.addView(basis); amounts.addView(actual)
+        val kcal = input("热量（kcal）", prior?.kcal?.toString() ?: "", true)
+        val protein = input("蛋白质（g，可留空）", prior?.protein?.toString() ?: "", true)
+        val carbs = input("碳水化合物（g，可留空）", prior?.carbs?.toString() ?: "", true)
+        val fat = input("脂肪（g，可留空）", prior?.fat?.toString() ?: "", true)
+        val sodium = input("钠（mg，可留空）", prior?.sodium?.toString() ?: "", true)
         var foodDetails = initial?.details ?: ""
-        val detailsView = text(foodDetails, 11f, muted)
-        if (kind == "food") {
-            c.addView(button("从快捷食物 / 原材料配方填入") {
-                FoodLibraryUi(this, store) { selected ->
-                    val n = selected.values; name.setText(selected.food.name); kcal.setText(n.kcal.toString())
-                    protein.setText(n.protein.toString()); carbs.setText(n.carbs.toString()); fat.setText(n.fat.toString()); sodium.setText(n.sodium?.toString() ?: "")
-                    foodDetails = selected.details; detailsView.text = foodDetails
-                }.show()
-            })
+        val details = text(foodDetails, 11f, muted)
+        val preview = text("", 13f, green)
+        var previousMode = mode.selectedItemPosition
+        fun fillNutrients(n: EntryNutrients) {
+            NumberInput.setValue(kcal, n.kcal); NumberInput.setValue(protein, n.protein); NumberInput.setValue(carbs, n.carbs); NumberInput.setValue(fat, n.fat); NumberInput.setValue(sodium, n.sodium)
         }
-        c.addView(name); c.addView(kcal); if (kind == "exercise") { c.addView(mins); c.addView(text("填写该次运动的总消耗，不是每分钟消耗。", 12f, muted)) }
-        if (kind == "food") {
-            c.addView(text("填写本次实际食用份量的营养总克数，不是每 100 g 含量。留空表示未知，填 0 表示没有摄入该项。", 12f, muted))
-            listOf("蛋白质（g）" to protein, "碳水化合物（g）" to carbs, "脂肪（g）" to fat).forEach { (label, field) -> c.addView(text(label, 12f, muted)); c.addView(field) }
-            c.addView(text("钠（mg）", 12f, muted)); c.addView(sodium)
-            c.addView(text("以下为快捷输入的参考份量与来源；如手动修改营养，以最终保存数值为准。", 11f, muted)); c.addView(detailsView)
+        fun reference(): EntryNutrients? {
+            val energy = FoodMath.nonNegative(NumberInput.raw(kcal), 50000.0) ?: return null
+            val fields = listOf(protein, carbs, fat)
+            if (fields.any { it.text.isNotBlank() && Nutrition.grams(NumberInput.raw(it)) == null }) return null
+            val na = FoodMath.nonNegative(NumberInput.raw(sodium), 1000000.0)
+            if (sodium.text.isNotBlank() && na == null) return null
+            return EntryNutrients(energy, Nutrition.grams(NumberInput.raw(protein)), Nutrition.grams(NumberInput.raw(carbs)), Nutrition.grams(NumberInput.raw(fat)), na)
         }
-        val dialog = AlertDialog.Builder(this).setTitle(if (existing == null) "添加记录" else "编辑记录").setView(ScrollView(this).apply { addView(c) }).setNegativeButton("取消", null).setPositiveButton("保存", null)
-        if (existing != null) dialog.setNeutralButton("删除") { _, _ -> confirmDelete { store.delete(existing); render() } }
-        val d = dialog.create()
-        if (kind == "food" && existing == null) {
-            space(c, 12); c.addView(button("这一餐没吃") {
-                val chosen = Meal.entries[mealPicker.selectedItemPosition]
-                if (chosen.remindable) skipMeal(targetDate, chosen) { d.dismiss() }
-                else Toast.makeText(this, "仅早餐、午餐和晚餐可标记没吃", Toast.LENGTH_SHORT).show()
-            })
+        fun portion(ref: EntryNutrients): FoodPortion? {
+            val g = Energy.number(NumberInput.raw(basis), 100000.0) ?: return null
+            val a = Energy.number(NumberInput.raw(actual), 100000.0) ?: return null
+            return FoodPortion(g, a, ref)
         }
-        d.setOnShowListener { d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val n = if (kind == "food") FoodMath.nonNegative(kcal.text.toString(), 50000.0) else Energy.number(kcal.text.toString(), 50000.0)
-            val m = if (kind == "exercise") mins.text.toString().trim().toIntOrNull() else 0
-            val na = FoodMath.nonNegative(sodium.text.toString(), 1000000.0)
-            val nutrients = if (kind == "food") listOf(protein, carbs, fat) else emptyList()
-            val invalidNutrient = nutrients.firstOrNull { it.text.toString().isNotBlank() && Nutrition.grams(it.text.toString()) == null }
-            when {
-                name.text.toString().trim().isEmpty() || name.text.length > 80 -> name.error = "请输入 1–80 字的名称"
-                n == null -> kcal.error = if (kind == "food") "请输入0–50000 kcal的热量" else "请输入大于0、至多50000的热量"
-                m == null || m !in 1..1440 && kind == "exercise" -> mins.error = "请输入 1–1440 的整数分钟"
-                invalidNutrient != null -> invalidNutrient.error = "请输入 0–5000 g，或留空"
-                kind == "food" && sodium.text.isNotBlank() && na == null -> sodium.error = "请输入0–1000000 mg，或留空"
-                else -> { store.save(Entry(existing?.id ?: 0L, targetDate, kind, name.text.toString().trim(), n, m,
-                    if (kind == "food") Nutrition.grams(protein.text.toString()) else null,
-                    if (kind == "food") Nutrition.grams(carbs.text.toString()) else null,
-                    if (kind == "food") Nutrition.grams(fat.text.toString()) else null,
-                    if (kind == "food") Meal.entries[mealPicker.selectedItemPosition].key else "unspecified",
-                    if (kind == "food") na else null, if (kind == "food") foodDetails else ""))
-                    if (kind == "food") MealReminders.resolve(this, targetDate, Meal.entries[mealPicker.selectedItemPosition])
-                    d.dismiss(); render() }
+        fun update() {
+            amounts.visibility = if (mode.selectedItemPosition == 1) View.VISIBLE else View.GONE
+            val ref = reference()
+            val total = if (mode.selectedItemPosition == 1) ref?.let { portion(it)?.values } else ref
+            preview.text = if (total == null) "填写完成后可计算预览；保存时统一校验。" else "本次摄入：${FoodValues.f(total.kcal)} kcal · 蛋白 ${total.protein?.let { FoodValues.f(it) } ?: "未知"}g · 碳水 ${total.carbs?.let { FoodValues.f(it) } ?: "未知"}g · 脂肪 ${total.fat?.let { FoodValues.f(it) } ?: "未知"}g"
+        }
+        c.addView(button("从分类快捷食物 / 配方填入") {
+            FoodLibraryUi(this, store, foodPhotos) { selected ->
+                name.setText(selected.food.name)
+                val selectedPortion = selected.asPortion()
+                if (selectedPortion != null) {
+                    previousMode = 1
+                    mode.setSelection(1); NumberInput.setValue(basis, selectedPortion.basis); NumberInput.setValue(actual, selectedPortion.actual)
+                    val ref = selectedPortion.reference
+                    NumberInput.setValue(kcal, ref.kcal); NumberInput.setValue(protein, ref.protein); NumberInput.setValue(carbs, ref.carbs); NumberInput.setValue(fat, ref.fat); NumberInput.setValue(sodium, ref.sodium)
+                    foodDetails = selected.food.details()
+                } else {
+                    previousMode = 0
+                    mode.setSelection(0); val n = selected.values
+                    NumberInput.setValue(kcal, n.kcal); NumberInput.setValue(protein, n.protein); NumberInput.setValue(carbs, n.carbs); NumberInput.setValue(fat, n.fat); NumberInput.setValue(sodium, n.sodium)
+                    foodDetails = selected.details
+                }
+                details.text = foodDetails; update()
+            }.show()
+        })
+        c.addView(name); c.addView(mode); c.addView(amounts)
+        c.addView(text("支持计算式，如17/4.18、(120+30)*2。输入时不计算，离开输入框或保存时校验；未知营养留空，确实没有填0。", 12f, muted))
+        listOf("热量（kcal）" to kcal, "蛋白质（g）" to protein, "碳水化合物（g）" to carbs, "脂肪（g）" to fat, "钠（mg）" to sodium).forEach { (label, field) -> c.addView(text(label, 12f, muted)); c.addView(field) }
+        c.addView(button("计算本次摄入") { c.requestFocus(); update() }); c.addView(preview); c.addView(details)
+        listOf(basis, actual, kcal, protein, carbs, fat, sodium).forEach { NumberInput.onFinished(it) { update() } }
+        mode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position != previousMode) {
+                    val ref = reference()
+                    val amount = ref?.let { portion(it) }
+                    if (ref != null && amount != null) fillNutrients(if (position == 0) amount.values else ref.scale(amount.basis / amount.actual))
+                    previousMode = position
+                }
+                update()
             }
-        } }; d.show()
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }; update()
+        val builder = AlertDialog.Builder(this).setTitle(if (existing == null) "添加食物" else "编辑食物").setView(ScrollView(this).apply { addView(c) }).setNegativeButton("取消", null).setPositiveButton("保存", null)
+        if (existing != null) builder.setNeutralButton("删除") { _, _ -> confirmDelete { store.delete(existing); render() } }
+        val dialog = builder.create()
+        if (existing == null) c.addView(button("这一餐没吃") {
+            val meal = Meal.entries[mealPicker.selectedItemPosition]
+            if (meal.remindable) skipMeal(targetDate, meal) { dialog.dismiss() } else Toast.makeText(this, "仅三餐可标记没吃", Toast.LENGTH_SHORT).show()
+        })
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val ref = reference(); val portion = ref?.let { if (mode.selectedItemPosition == 1) portion(it) else null }
+            val total = if (mode.selectedItemPosition == 1) portion?.values else ref
+            when {
+                name.text.isBlank() || name.text.length > 80 -> name.error = "请输入1–80字的名称"
+                FoodMath.nonNegative(NumberInput.raw(kcal), 50000.0) == null -> kcal.error = "请输入有效计算式，结果需为0–50000 kcal"
+                listOf(protein, carbs, fat).any { it.text.isNotBlank() && Nutrition.grams(NumberInput.raw(it)) == null } -> listOf(protein, carbs, fat).first { it.text.isNotBlank() && Nutrition.grams(NumberInput.raw(it)) == null }.error = "结果需为0–5000 g，未知请留空"
+                sodium.text.isNotBlank() && FoodMath.nonNegative(NumberInput.raw(sodium), 1000000.0) == null -> sodium.error = "结果需为0–1000000 mg，未知请留空"
+                mode.selectedItemPosition == 1 && Energy.number(NumberInput.raw(basis), 100000.0) == null -> basis.error = "参考克数需大于0，至多100000 g"
+                mode.selectedItemPosition == 1 && Energy.number(NumberInput.raw(actual), 100000.0) == null -> actual.error = "实际克数需大于0，至多100000 g"
+                total == null || !total.valid() -> preview.text = "换算结果超出可记录范围，请核对营养与份量。"
+                else -> {
+                    store.save(Entry(id = existing?.id ?: 0, date = targetDate, kind = "food", name = NumberInput.raw(name).trim(), kcal = total.kcal,
+                        protein = total.protein, carbs = total.carbs, fat = total.fat, sodium = total.sodium, meal = Meal.entries[mealPicker.selectedItemPosition].key,
+                        details = foodDetails, portion = portion?.let { PortionJson.encode(it) } ?: ""))
+                    MealReminders.resolve(this, targetDate, Meal.entries[mealPicker.selectedItemPosition]); dialog.dismiss(); render()
+                }
+            }
+        } }; dialog.show()
     }
+
     private fun weightDialog(existing: Weight? = null) {
         val target = existing?.date ?: date.toString()
         val c = dialogBody(); c.addView(text(target, 14f, muted)); val field = input("体重（kg）", existing?.kg?.toString() ?: "", true); c.addView(field)
@@ -871,7 +925,7 @@ class MainActivity : ComponentActivity() {
         val builder = AlertDialog.Builder(this).setTitle("记录体重").setView(c).setNegativeButton("取消", null).setPositiveButton("保存", null)
         if (existing != null) builder.setNeutralButton("删除") { _, _ -> confirmDelete { store.deleteWeight(target); render() } }
         val d = builder.create(); d.setOnShowListener { d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val n = Energy.number(field.text.toString(), 1000.0)
+            val n = Energy.number(NumberInput.raw(field), 1000.0)
             if (n == null) field.error = "请输入大于 0、至多 1000 的体重"
             else { store.saveWeight(Weight(target, n)); d.dismiss(); render() }
         } }; d.show()
@@ -899,7 +953,7 @@ class MainActivity : ComponentActivity() {
                 csvRow("", "自定义目标", listOf("蛋白质", "碳水", "脂肪")[i], "", "", "", if (i == 0) it else "", if (i == 1) it else "", if (i == 2) it else "")
             } }
             val allEntries = store.entries()
-            allEntries.forEach { e -> csvRow(e.date, if (e.kind == "food") "饮食" else "运动", e.name, e.kcal, e.minutes, "", e.protein, e.carbs, e.fat, if (e.kind == "food") Meal.from(e.meal).label else "", e.sodium, e.details, e.exerciseRate, if (e.kind == "exercise") e.exerciseRateKind else "", if (e.kind == "exercise") e.overlapSteps else "") }
+            allEntries.forEach { e -> csvRow(e.date, if (e.kind == "food") "饮食" else "运动", e.name, e.kcal, e.minutes, "", e.protein, e.carbs, e.fat, if (e.kind == "food") Meal.from(e.meal).label else "", e.sodium, e.details + (if (e.portion.isBlank()) "" else "\n参考份量快照：${e.portion}"), e.exerciseRate, if (e.kind == "exercise") e.exerciseRateKind else "", if (e.kind == "exercise") e.overlapSteps else "") }
             store.stepDays().forEach { day ->
                 val walk = walkingEstimate(day.date, allEntries.filter { it.date == day.date }); val config = walkingConfig()
                 csvRow(day.date, "每日步数步行估算", "步行净消耗", walk.kcal, walk.minutes, ExerciseMath.weightAt(store.weights(), day.date), "", "", "", "", "",

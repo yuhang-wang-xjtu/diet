@@ -1,0 +1,6 @@
+<resources>
+    <item name="numeric_initial" type="id"/>
+    <item name="numeric_finished" type="id"/>
+    <item name="numeric_dirty" type="id"/>
+    <item name="numeric_setting" type="id"/>
+</resources>

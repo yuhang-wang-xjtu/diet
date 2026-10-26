@@ -91,7 +91,7 @@ class AppUpdates(private val activity: ComponentActivity, private val changed: (
                     .setMessage(release.optString("body").take(4000).ifBlank { "此版本没有发布说明。" } + if (apks.isEmpty()) "\n\n没有可用的APK附件，请查看Release页面。" else "\n\n下载后核对包名、版本、签名，再交给系统确认安装。")
                     .setPositiveButton(if (apks.isEmpty()) "查看Release" else "下载更新") { _, _ ->
                         if (apks.isEmpty()) openRelease() else if (apks.size == 1) download(apks.first()) else {
-                            AlertDialog.Builder(activity).setTitle("选择适合手机的APK").setItems(apks.map { "${it.name}（${it.size / 1024 / 1024.0} MB）" }.toTypedArray()) { _, index -> download(apks[index]) }.setNegativeButton("取消", null).show()
+                            AlertDialog.Builder(activity).setTitle("选择适合手机的APK").setItems(apks.map { "${it.name}（${DecimalText.display(it.size / 1024 / 1024.0)} MB）" }.toTypedArray()) { _, index -> download(apks[index]) }.setNegativeButton("取消", null).show()
                         }
                     }.setNeutralButton("Release页面") { _, _ -> openRelease() }.setNegativeButton("稍后", null).show()
             } catch (e: CancellationException) { throw e }

@@ -15,7 +15,7 @@ data class FoodValues(val kcal: Double, val protein: Double, val carbs: Double, 
         if (sodium == null || other.sodium == null) null else sodium + other.sodium)
     fun summary() = "${f(kcal)} kcal · 蛋白 ${f(protein)} g · 碳水 ${f(carbs)} g · 脂肪 ${f(fat)} g · 钠 ${sodium?.let { f(it) + " mg" } ?: "未知"}"
     companion object {
-        fun f(value: Double) = String.format(Locale.US, "%.1f", value)
+        fun f(value: Double) = DecimalText.display(value)
         val ZERO = FoodValues(0.0, 0.0, 0.0, 0.0, 0.0)
     }
 }
@@ -27,7 +27,8 @@ data class QuickFood(
     val id: Long = 0, val name: String, val basisGrams: Double?, val values: FoodValues,
     val unitName: String = "份", val unitGrams: Double? = basisGrams,
     val source: String = "用户自定义", val sourceUrl: String = "", val note: String = "",
-    val ingredients: List<FoodIngredient> = emptyList()
+    val ingredients: List<FoodIngredient> = emptyList(),
+    val category: String = FoodCategories.LEGACY, val image: String = ""
 ) {
     init {
         require(basisGrams == null || basisGrams.isFinite() && basisGrams > 0)
@@ -57,14 +58,39 @@ data class FoodIngredient(val food: QuickFood, val amount: Double, val unit: Foo
     val values get() = food.portion(amount, unit)
 }
 data class FoodSelection(val food: QuickFood, val amount: Double, val unit: FoodUnit) {
+    fun asPortion(): FoodPortion? = food.basisGrams?.let { basis ->
+        val n = food.values
+        val actual = food.factor(amount, unit) * basis
+        if (!actual.isFinite() || actual <= 0 || actual > 100000 || basis > 100000) null
+        else FoodPortion(basis, actual, EntryNutrients(n.kcal, n.protein, n.carbs, n.fat, n.sodium))
+    }
     val values get() = food.portion(amount, unit)
     val details get() = "${food.name} · ${food.quantity(amount, unit)}\n${food.details()}"
 }
 object FoodMath {
-    fun nonNegative(raw: String, max: Double): Double? = raw.trim().toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0 && it <= max }
+    fun nonNegative(raw: String, max: Double): Double? = Expressions.evaluate(raw)?.takeIf { it >= 0 && it <= max }
     fun sum(items: List<FoodIngredient>): FoodValues = items.fold(FoodValues.ZERO) { total, item -> total + item.values }
     fun recipe(name: String, items: List<FoodIngredient>, cookedGrams: Double?, id: Long = 0) = QuickFood(
         id, name, cookedGrams, sum(items), "整锅", cookedGrams,
         "按原材料相加估算", note = "假设所填原料均进入成品；不自动估计残油、弃汤和烹调营养损失。按实际吃掉的整锅比例记录。",
         ingredients = items.map { it.copy(food = it.food.copy(ingredients = emptyList())) })
+}
+object FoodCategories {
+    const val LEGACY = "原有菜品"
+    val defaults = listOf("菜品", "主食", "饮品", "蛋奶肉类", "蔬果", "佐料", "零食", LEGACY)
+    fun clean(raw: String) = raw.trim().ifBlank { LEGACY }
+    fun of(food: QuickFood) = clean(food.category)
+    fun builtin(id: Long) = when (id) {
+        -1L, -2L -> "主食"; -9L -> "饮品"; -3L -> "蛋奶肉类"; -4L, -10L -> "蔬果"
+        -5L, -6L, -7L, -8L -> "佐料"; else -> "菜品"
+    }
+    fun categories(foods: List<QuickFood>) = (defaults + foods.map { of(it) }).distinct()
+}
+data class EntryNutrients(val kcal: Double, val protein: Double?, val carbs: Double?, val fat: Double?, val sodium: Double?) {
+    fun scale(factor: Double) = EntryNutrients(kcal * factor, protein?.times(factor), carbs?.times(factor), fat?.times(factor), sodium?.times(factor))
+    fun valid() = kcal.isFinite() && kcal in 0.0..50000.0 && listOf(protein, carbs, fat).all { it == null || it.isFinite() && it in 0.0..5000.0 } && (sodium == null || sodium.isFinite() && sodium in 0.0..1000000.0)
+}
+data class FoodPortion(val basis: Double, val actual: Double, val reference: EntryNutrients) {
+    init { require(basis.isFinite() && actual.isFinite() && basis > 0 && actual > 0 && basis <= 100000 && actual <= 100000) }
+    val values get() = reference.scale(actual / basis)
 }

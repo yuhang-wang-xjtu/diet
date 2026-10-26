@@ -19,7 +19,8 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
         label(c, title)
         return EditText(activity).apply {
             setText(value); textSize = 16f; minHeight = dp(48); setSingleLine(true)
-            inputType = if (number) InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL else InputType.TYPE_CLASS_TEXT
+            inputType = InputType.TYPE_CLASS_TEXT
+            if (number) NumberInput.configure(this, value)
             c.addView(this)
         }
     }
@@ -37,7 +38,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
         override fun onNothingSelected(parent: AdapterView<*>?) = Unit
     } }
     private fun rate(e: EditText, units: Spinner): Double? {
-        val raw = Energy.number(e.text.toString(), 30000.0) ?: return null
+        val raw = Energy.number(NumberInput.raw(e), 30000.0) ?: return null
         return ExerciseMath.perMinute(raw, units.selectedItemPosition == 1).takeIf { it <= 500.0 }
     }
     fun entry(existing: Entry? = null) {
@@ -58,8 +59,8 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
         val saveType = CheckBox(activity).apply { text = "把该种类和单位时间消耗保存为快捷运动"; c.addView(this) }
         fun kind() = if (kinds.selectedItemPosition == 1) ExerciseRateKind.TOTAL else ExerciseRateKind.ACTIVE
         fun calculated(): Double? {
-            val m = minutes.text.toString().toIntOrNull()?.takeIf { it in 1..1440 } ?: return null
-            return if (mode.selectedItemPosition == 1) FoodMath.nonNegative(direct.text.toString(), 50000.0)
+            val m = Expressions.integer(NumberInput.raw(minutes))?.toInt()?.takeIf { it in 1..1440 } ?: return null
+            return if (mode.selectedItemPosition == 1) FoodMath.nonNegative(NumberInput.raw(direct), 50000.0)
             else rate(r, units)?.let { ExerciseMath.calories(it, kind(), m, weight) }
         }
         fun update() {
@@ -67,12 +68,12 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
             r.isEnabled = byRate; units.isEnabled = byRate; kinds.isEnabled = byRate; direct.isEnabled = !byRate; saveType.isEnabled = byRate
             preview.text = calculated()?.let { "本次计入额外消耗：${FoodValues.f(it)} kcal" } ?: "填写有效时长和消耗；总消耗模式还需要体重。"
         }
-        listOf(r, minutes, direct).forEach { watch(it) { update() } }; listOf(mode, units, kinds).forEach { selected(it) { update() } }; update()
+        listOf(r, minutes, direct).forEach { NumberInput.onFinished(it) { update() } }; listOf(mode, units, kinds).forEach { selected(it) { update() } }; update()
         button(c, "选择已保存的运动种类") {
             val types = store.exerciseTemplates()
             if (types.isEmpty()) Toast.makeText(activity, "暂无快捷运动，可勾选上面的保存选项，或进入管理新增", Toast.LENGTH_LONG).show()
             else AlertDialog.Builder(activity).setTitle("快捷运动").setItems(types.map { "${it.name} · ${FoodValues.f(it.kcalPerMinute)} kcal/分钟" }.toTypedArray()) { _, i ->
-                val t = types[i]; name.setText(t.name); r.setText(t.kcalPerMinute.toString()); units.setSelection(0); kinds.setSelection(if (t.kind == ExerciseRateKind.TOTAL) 1 else 0); mode.setSelection(0); update()
+                val t = types[i]; name.setText(t.name); NumberInput.setValue(r, t.kcalPerMinute); units.setSelection(0); kinds.setSelection(if (t.kind == ExerciseRateKind.TOTAL) 1 else 0); mode.setSelection(0); update()
             }.setNegativeButton("取消", null).show()
         }
         button(c, "管理运动种类与强度") { manage() }
@@ -81,7 +82,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
                 if (existing != null) setNeutralButton("删除") { _, _ -> AlertDialog.Builder(activity).setTitle("删除这条运动？").setNegativeButton("取消", null).setPositiveButton("删除") { _, _ -> store.delete(existing); changed() }.show() }
             }.create()
         d.setOnShowListener { d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val m = minutes.text.toString().toIntOrNull(); val steps = overlap.text.toString().toLongOrNull(); val kcal = calculated()
+            val m = Expressions.integer(NumberInput.raw(minutes))?.toInt(); val steps = Expressions.integer(NumberInput.raw(overlap)); val kcal = calculated()
             when {
                 name.text.isBlank() || name.text.length > 80 -> name.error = "请输入1–80字运动名称"
                 m == null || m !in 1..1440 -> minutes.error = "请输入1–1440整数分钟"
@@ -90,10 +91,10 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
                 else -> {
                     val usedRate = if (mode.selectedItemPosition == 0) rate(r, units) else null
                     val usedKind = if (usedRate == null) ExerciseRateKind.ACTIVE else kind()
-                    val details = if (usedRate == null) "用户填写额外总消耗" else "${FoodValues.f(usedRate)} kcal/分钟 × $m 分钟；${if (usedKind == ExerciseRateKind.ACTIVE) "活动消耗" else "总消耗，按${weight}kg扣除静息部分"}"
-                    store.save(Entry(id = existing?.id ?: 0, date = date, kind = "exercise", name = name.text.toString().trim(), kcal = kcal, minutes = m,
+                    val details = if (usedRate == null) "用户填写额外总消耗" else "${FoodValues.f(usedRate)} kcal/分钟 × $m 分钟；${if (usedKind == ExerciseRateKind.ACTIVE) "活动消耗" else "总消耗，按${weight?.let { FoodValues.f(it) }}kg扣除静息部分"}"
+                    store.save(Entry(id = existing?.id ?: 0, date = date, kind = "exercise", name = NumberInput.raw(name).trim(), kcal = kcal, minutes = m,
                         details = "$details；与当天总步数重叠 $steps 步", exerciseRate = usedRate, exerciseRateKind = usedKind.name, overlapSteps = steps))
-                    if (usedRate != null && saveType.isChecked) store.saveExerciseTemplate(ExerciseTemplate(name = name.text.toString().trim(), kcalPerMinute = usedRate, kind = usedKind))
+                    if (usedRate != null && saveType.isChecked) store.saveExerciseTemplate(ExerciseTemplate(name = NumberInput.raw(name).trim(), kcalPerMinute = usedRate, kind = usedKind))
                     d.dismiss(); changed()
                 }
             }
@@ -120,7 +121,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
             val value = rate(r, units)
             if (name.text.isBlank() || name.text.length > 80) name.error = "请输入1–80字名称"
             else if (value == null) r.error = "需大于0且不超过500 kcal/分钟（或30000 kcal/小时）"
-            else { store.saveExerciseTemplate(ExerciseTemplate(t?.id ?: 0, name.text.toString().trim(), value, if (kind.selectedItemPosition == 1) ExerciseRateKind.TOTAL else ExerciseRateKind.ACTIVE)); d.dismiss(); manage() }
+            else { store.saveExerciseTemplate(ExerciseTemplate(t?.id ?: 0, NumberInput.raw(name).trim(), value, if (kind.selectedItemPosition == 1) ExerciseRateKind.TOTAL else ExerciseRateKind.ACTIVE)); d.dismiss(); manage() }
         } }; d.show()
     }
 }

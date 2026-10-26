@@ -23,7 +23,7 @@ object FoodCatalog {
     val tomatoEgg by lazy { FoodMath.recipe("番茄炒蛋（示例配方）", listOf(
         FoodIngredient(egg, 2.0, FoodUnit.PORTIONS), FoodIngredient(tomato, 1.0, FoodUnit.PORTIONS),
         FoodIngredient(oil, 10.0, FoodUnit.GRAMS), FoodIngredient(salt, 2.0, FoodUnit.GRAMS)), null, -100) }
-    val all get() = listOf(tomatoEgg, rice, bun, egg, tomato, milk, banana, oil, salt, sugar, soySauce)
+    val all get() = listOf(tomatoEgg, rice, bun, egg, tomato, milk, banana, oil, salt, sugar, soySauce).map { it.copy(category = FoodCategories.builtin(it.id)) }
     val aliases get() = mapOf("鸡蛋" to egg, "蛋" to egg, "番茄" to tomato, "西红柿" to tomato, "米饭" to rice, "馒头" to bun,
         "花生油" to oil, "食盐" to salt, "盐" to salt, "白砂糖" to sugar, "白糖" to sugar, "糖" to sugar, "酱油" to soySauce, "牛奶" to milk, "香蕉" to banana)
 }
