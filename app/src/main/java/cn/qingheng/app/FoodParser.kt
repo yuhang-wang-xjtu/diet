@@ -2,7 +2,7 @@ package cn.qingheng.app
 
 data class IngredientParse(val items: List<FoodIngredient>, val errors: List<String>)
 object FoodParser {
-    private const val NUM = "([0-9]+(?:\\.[0-9]+)?|[一二两三四五六七八九十半]+)"
+    private const val NUM = "(-?[0-9]+(?:\\.[0-9]+)?|[一二两三四五六七八九十半]+)"
     private const val UNIT = "(kg|公斤|千克|g|克|个|根|碗|杯|勺|份|小勺)"
     private val prefix = Regex("^$NUM\\s*$UNIT\\s*(.+)$", RegexOption.IGNORE_CASE)
     private val suffix = Regex("^(.+?)\\s*$NUM\\s*$UNIT$", RegexOption.IGNORE_CASE)
@@ -19,7 +19,7 @@ object FoodParser {
     }
     fun parse(raw: String, custom: List<QuickFood> = emptyList()): IngredientParse {
         val items = mutableListOf<FoodIngredient>(); val errors = mutableListOf<String>()
-        val tokens = raw.split(Regex("[、,，;；\\n+]+" )).map { it.trim() }.filter { it.isNotEmpty() }
+        val tokens = raw.replace('−', '-').split(Regex("[、,，;；\\n+]+" )).map { it.trim() }.filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return IngredientParse(emptyList(), listOf("请输入原材料与数量"))
         tokens.forEach { token ->
             val p = prefix.matchEntire(token); val s = suffix.matchEntire(token)
@@ -30,14 +30,15 @@ object FoodParser {
             val candidates = (custom.filter { it.name == name } + listOfNotNull(FoodCatalog.aliases[name])).distinctBy { it.id to it.name }
             val food = candidates.singleOrNull()
             when {
-                name == null || amount == null || amount <= 0 || !amount.isFinite() -> errors.add("无法识别“$token”，请用“鸡蛋2个”或“10g花生油”")
+                name == null || amount == null || !amount.isFinite() -> errors.add("无法识别“$token”，请用“鸡蛋2个”或“10g花生油”")
                 food == null -> errors.add("“$name”不存在或有同名条目，请先建自定义食物，或从列表选择")
                 else -> {
                     val grams = unitText in listOf("g", "克", "kg", "公斤", "千克")
                     val value = amount * if (unitText in listOf("kg", "公斤", "千克")) 1000 else 1
                     val validUnit = grams || food.unitName.startsWith(unitText!!) || unitText == "份"
-                    if (!validUnit || grams && food.basisGrams == null || value > 100000) errors.add("“$token”的单位/数量不适用，请从列表确认份量")
-                    else items.add(FoodIngredient(food.copy(ingredients = emptyList()), value, if (grams) FoodUnit.GRAMS else FoodUnit.PORTIONS))
+                    val item = FoodIngredient(food.copy(ingredients = emptyList()), value, if (grams) FoodUnit.GRAMS else FoodUnit.PORTIONS)
+                    if (!validUnit || grams && food.basisGrams == null || !value.isFinite() || runCatching { item.values }.isFailure) errors.add("“$token”的单位/计算结果不适用，请从列表确认份量")
+                    else items.add(item)
                 }
             }
         }

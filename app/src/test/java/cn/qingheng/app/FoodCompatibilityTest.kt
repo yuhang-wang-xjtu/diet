@@ -55,8 +55,9 @@ class FoodCompatibilityTest {
         assertEquals(selection.values.kcal, selection.asPortion()!!.values.kcal, 1e-10)
         assertNull(FoodSelection(FoodCatalog.tomatoEgg, 0.5, FoodUnit.PORTIONS).asPortion())
     }
-    @Test fun quantityBoundsAndExcessiveScaledIntakeAreRejected() {
+    @Test fun noArtificialQuantityBoundsButDivisionByZeroAndOverflowAreRejected() {
         try { FoodPortion(0.0, 100.0, EntryNutrients(1.0, null, null, null, null)); fail() } catch (_: IllegalArgumentException) { }
-        assertFalse(FoodPortion(1.0, 100000.0, EntryNutrients(100.0, null, null, null, null)).values.valid())
+        assertTrue(FoodPortion(1.0, 100000.0, EntryNutrients(100.0, null, null, null, null)).values.valid())
+        assertFalse(FoodPortion(1.0, 1e308, EntryNutrients(1e308, null, null, null, null)).values.valid())
     }
 }

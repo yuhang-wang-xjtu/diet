@@ -11,7 +11,7 @@ import android.view.View
 import android.widget.*
 
 /** Offline food library and recipe editor, shared by regular meals and snacks. */
-class FoodLibraryUi(private val activity: Activity, private val store: Store, private val photos: FoodPhotoPicker, private val onSelect: (FoodSelection) -> Unit) {
+class FoodLibraryUi(private val activity: Activity, private val store: Store, private val photos: FoodPhotoPicker, private val onSelect: (QuickFood?) -> Unit) {
     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
     private fun column() = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(6), dp(20), dp(10)) }
     private fun label(c: LinearLayout, value: String): TextView = TextView(activity).apply {
@@ -43,8 +43,8 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         } }
         dialog.show(); return dialog
     }
-    fun show() { pickFood { food -> portion(food, "填入记餐表单", onSelect) } }
-    private fun pickFood(pick: (QuickFood) -> Unit) {
+    fun show() { pickFood(createManual = { onSelect(null) }) { onSelect(it) } }
+    private fun pickFood(createManual: (() -> Unit)? = null, pick: (QuickFood) -> Unit) {
         val c = column(); val location = label(c, "先选择分类，再选择食物。离线参考值，按实际份量换算。")
         var category: String? = null
         val search = field(c, "搜索", "")
@@ -65,7 +65,10 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         refresh(); watch(search) { refresh() }
         val dialog = AlertDialog.Builder(activity).setTitle("快捷食物与原料").setView(ScrollView(activity).apply { addView(c) }).setNegativeButton("关闭", null).create()
         list.setOnItemClickListener { _, _, i, _ -> if (category == null) { category = categories[i]; search.text.clear(); refresh() } else { dialog.dismiss(); pick(filtered[i]) } }
-        button(c, "＋ 自定义食物 · 直接填数值") { dialog.dismiss(); editFood(null, category ?: "菜品") { pick(it) } }
+        button(c, if (createManual == null) "＋ 自定义食物" else "＋ 手动输入食物") {
+            dialog.dismiss()
+            if (createManual != null) createManual() else editFood(null, category ?: "菜品") { pick(it) }
+        }
         button(c, "＋ 原材料配方 · 自动合计") { dialog.dismiss(); editRecipe(null, category ?: "菜品") { pick(it) } }
         button(c, "管理已有菜品 · 分类 / 图片 / 编辑") { dialog.dismiss(); activity.startActivity(Intent(activity, FoodManagerActivity::class.java)) }
         dialog.show()
@@ -97,87 +100,67 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
     }
     private fun portion(food: QuickFood, action: String, chosen: (FoodSelection) -> Unit, initial: FoodIngredient? = null) {
         val c = column()
-        label(c, if (food.basisGrams == null) "以下为整锅总量，尚未填写成品熟重。" else "参考份量 ${FoodValues.f(food.basisGrams)} g 的营养：")
-        label(c, food.values.summary())
-        val amount = field(c, "实际份量（0.5 表示半份 / 半锅）", initial?.amount?.toString() ?: "1", true)
-        val units = if (food.basisGrams == null) listOf(FoodUnit.PORTIONS) else listOf(FoodUnit.PORTIONS, FoodUnit.GRAMS)
-        val spinner = Spinner(activity).apply {
-            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, units.map { if (it == FoodUnit.GRAMS) "克（g）" else food.unitName })
-            setSelection(units.indexOf(initial?.unit ?: FoodUnit.PORTIONS).coerceAtLeast(0)); minimumHeight = dp(48); c.addView(this)
+        val actual = initial?.takeIf { food.basisGrams != null }?.let { food.factor(it.amount, it.unit) * food.basisGrams!! }
+        val fields = FoodNutritionInput(activity, c, food.name, FoodInputDraft.fromFood(food, actual))
+        label(c, "填写参考营养并手动输入实际克数。这里的修改只用于本次原料，不会改写已保存的快捷食物。")
+        label(c, food.details())
+        form(food.name, c, action) {
+            val reference = fields.reference(requireMacros = true)
+            val portion = fields.portion()
+            when {
+                fields.name.text.isBlank() -> { fields.name.error = "请输入食物名称"; false }
+                reference == null || portion == null -> false
+                else -> {
+                    val snapshot = food.copy(name = NumberInput.raw(fields.name).trim(), basisGrams = portion.basis,
+                        values = FoodValues(reference.kcal, reference.protein!!, reference.carbs!!, reference.fat!!, reference.sodium))
+                    chosen(FoodSelection(snapshot, portion.actual, FoodUnit.GRAMS)); true
+                }
+            }
         }
-        val preview = label(c, "")
-        fun selection(): FoodSelection? = try {
-            Energy.number(NumberInput.raw(amount), 100000.0)?.let { FoodSelection(food, it, units[spinner.selectedItemPosition]).also { selected -> selected.values } }
-        } catch (_: IllegalArgumentException) { null }
-        fun update() { preview.text = selection()?.let { "本次：${food.quantity(it.amount, it.unit)}\n${it.values.summary()}" } ?: "请输入有效份量" }
-        NumberInput.onFinished(amount) { update() }
-        spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) { update() }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
-        }
-        label(c, food.details()); update()
-        val dialog = AlertDialog.Builder(activity).setTitle(food.name).setView(ScrollView(activity).apply { addView(c) })
-            .setNegativeButton("取消", null).setPositiveButton(action, null).create()
-        button(c, if (food.ingredients.isEmpty()) "复制并修改数值 / 份量" else "修改这道菜的原材料配方") {
-            dialog.dismiss()
-            if (food.ingredients.isEmpty()) editFood(food.copy(id = 0)) { portion(it, action, chosen) }
-            else editRecipe(food.copy(id = 0)) { portion(it, action, chosen) }
-        }
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val selected = selection()
-            if (selected == null) amount.error = "请输入大于0、至多100000的份量"
-            else { dialog.dismiss(); chosen(selected) }
-        } }; dialog.show()
     }
     private fun editFood(existing: QuickFood?, defaultCategory: String = "菜品", saved: (QuickFood) -> Unit) {
-        val c = column(); label(c, "填写下面参考克重对应的营养，不要把每100g数值与每份数值混用。能量单位为 kcal。")
-        val name = field(c, "名称", existing?.name ?: "")
+        val c = column()
+        val fields = FoodNutritionInput(activity, c, existing?.name ?: "", existing?.let { FoodInputDraft.fromFood(it) }
+            ?: FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null))
+        label(c, "保存快捷食物时保存参考营养；实际克数仅供本次预览。三大营养素确实没有时填0。")
         val meta = metadata(c, existing, defaultCategory)
-        val basis = field(c, "这些数值对应多少克（g）", existing?.basisGrams?.toString() ?: "100", true)
-        val kcal = field(c, "热量（kcal，允许0）", existing?.values?.kcal?.toString() ?: "", true)
-        val protein = field(c, "蛋白质（g，确实没有填0）", existing?.values?.protein?.toString() ?: "", true)
-        val carbs = field(c, "碳水化合物（g）", existing?.values?.carbs?.toString() ?: "", true)
-        val fat = field(c, "脂肪（g）", existing?.values?.fat?.toString() ?: "", true)
-        val sodium = field(c, "钠（mg，不知道可留空）", existing?.values?.sodium?.toString() ?: "", true)
         val unit = field(c, "快捷单位，例如个、勺、份", existing?.unitName ?: "份")
         val unitGrams = field(c, "一个快捷单位的克重（g，留空同参考克重）", existing?.unitGrams?.toString() ?: "", true)
         val notes = field(c, "备注 / 包装或数据来源", existing?.note ?: "", multiline = true)
         form("自定义快捷食物", c, "保存快捷食物") {
             val appearance = meta()
-            val g = Energy.number(NumberInput.raw(basis), 100000.0)
-            val numbers = listOf(kcal to 50000.0, protein to 5000.0, carbs to 5000.0, fat to 5000.0)
-            val bad = numbers.firstOrNull { FoodMath.nonNegative(NumberInput.raw(it.first), it.second) == null }
-            val na = FoodMath.nonNegative(NumberInput.raw(sodium), 1000000.0)
-            val ug = if (unitGrams.text.isBlank()) g else Energy.number(NumberInput.raw(unitGrams), 100000.0)
+            val reference = fields.reference(requireMacros = true)
+            val grams = fields.referenceGrams()
+            val ug = if (unitGrams.text.isBlank()) { if (existing != null && existing.unitGrams == null) null else grams } else FoodMath.number(NumberInput.raw(unitGrams))
             when {
-                appearance == null -> false
-                name.text.isBlank() || name.text.length > 80 -> { name.error = "请输入1–80字的名称"; false }
-                g == null -> { basis.error = "请输入有效参考克重"; false }
-                bad != null -> { bad.first.error = "请输入0–${bad.second.toInt()}的数值"; false }
-                sodium.text.isNotBlank() && na == null -> { sodium.error = "请输入0–1000000 mg或留空"; false }
-                ug == null -> { unitGrams.error = "请输入有效单位克重或留空"; false }
+                appearance == null || reference == null || grams == null -> false
+                fields.name.text.isBlank() || fields.name.text.length > 80 -> { fields.name.error = "请输入1–80字的名称"; false }
+                unitGrams.text.isNotBlank() && ug == null -> { unitGrams.error = "请输入有效数值或留空（允许负数）"; false }
                 unit.text.isBlank() || unit.text.length > 20 -> { unit.error = "请输入1–20字的单位"; false }
                 notes.text.length > 4000 -> { notes.error = "备注最多4000字"; false }
                 else -> {
-                    val values = numbers.map { FoodMath.nonNegative(NumberInput.raw(it.first), it.second)!! }
-                    val food = QuickFood(existing?.id ?: 0, NumberInput.raw(name).trim(), g, FoodValues(values[0], values[1], values[2], values[3], na),
-                        NumberInput.raw(unit).trim(), ug, existing?.source ?: "用户自定义", existing?.sourceUrl ?: "", NumberInput.raw(notes).trim(), category = appearance.category, image = appearance.image)
-                    saved(store.saveQuickFood(food))
-                    true
+                    val unchanged = existing != null && fields.referenceUnchanged()
+                    val food = QuickFood(id = existing?.id ?: 0, name = NumberInput.raw(fields.name).trim(),
+                        basisGrams = if (unchanged) existing!!.basisGrams else grams,
+                        values = if (unchanged) existing!!.values else FoodValues(reference.kcal, reference.protein!!, reference.carbs!!, reference.fat!!, reference.sodium),
+                        unitName = NumberInput.raw(unit).trim(), unitGrams = ug, source = existing?.source ?: "用户自定义", sourceUrl = existing?.sourceUrl ?: "",
+                        note = NumberInput.raw(notes).trim(), category = appearance.category, image = appearance.image)
+                    saved(store.saveQuickFood(food)); true
                 }
             }
         }
     }
+
     private fun editRecipe(existing: QuickFood?, defaultCategory: String = "菜品", saved: (QuickFood) -> Unit) {
         val c = column(); val items = existing?.ingredients?.toMutableList() ?: mutableListOf()
         val name = field(c, "菜名 / 配方名称", existing?.name ?: "")
         val meta = metadata(c, existing, defaultCategory)
         val cooked = field(c, "整锅成品熟重（g，可留空）", existing?.basisGrams?.toString() ?: "", true)
-        label(c, "没称熟重时可按0.5锅、1锅分摊；称了熟重后也可按吃掉的克数记录。原料按可食部分填写，不能用带壳重量代替去壳重量。")
+        label(c, "可暂不填熟重以保存配方；按克记餐前需补充整锅成品克重。原料按可食部分填写，不能用带壳重量代替去壳重量。")
         val total = label(c, "")
         val rows = column(); c.addView(rows)
         fun refresh() {
-            total.text = "整锅估算：\n${FoodMath.sum(items).summary()}"
+            total.text = runCatching { "整锅估算：\n${FoodMath.sum(items).summary()}" }.getOrElse { "合计结果不是有限数值，请检查原料计算式" }
             rows.removeAllViews()
             items.forEachIndexed { index, item ->
                 button(rows, "${item.food.name} · ${item.food.quantity(item.amount, item.unit)}") {
@@ -209,13 +192,14 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         label(c, "“个、根、碗、勺”使用条目注明的估重，请逐项核对。油、糖、盐、酱油都可以作为原料。计算假设所填原料全部进入成品；残油、弃汤和烹调损失需自行调整。")
         form("原材料配方计算", c, "保存配方") {
             val appearance = meta()
-            val grams = if (cooked.text.isBlank()) null else Energy.number(NumberInput.raw(cooked), 100000.0)
+            val grams = if (cooked.text.isBlank()) null else FoodMath.number(NumberInput.raw(cooked))?.takeIf { it != 0.0 }
             when {
                 appearance == null -> false
                 name.text.isBlank() || name.text.length > 80 -> { name.error = "请输入1–80字的菜名"; false }
                 items.isEmpty() -> { raw.error = "请至少添加一项原料"; false }
                 raw.text.isNotBlank() -> { raw.error = "这段文字还没加入配方，请先识别添加或清空"; false }
                 cooked.text.isNotBlank() && grams == null -> { cooked.error = "请输入有效熟重，或留空按整锅分摊"; false }
+                runCatching { FoodMath.sum(items) }.isFailure -> { raw.error = "原料合计不是有限数值，请检查计算式"; false }
                 else -> { saved(store.saveQuickFood(FoodMath.recipe(NumberInput.raw(name).trim(), items, grams, existing?.id ?: 0).copy(category = appearance.category, image = appearance.image))); true }
             }
         }

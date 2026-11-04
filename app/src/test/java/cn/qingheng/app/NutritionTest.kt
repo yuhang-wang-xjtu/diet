@@ -26,9 +26,11 @@ class NutritionTest {
         assertEquals(100.0, Nutrition.proteinTarget(listOf(Weight("2026-10-20", 70.0)), "2026-10-20", 100.0)!!, 0.001)
         assertEquals(80.0, Nutrition.proteinTarget(emptyList(), "2026-10-20", 80.0)!!, 0.001)
     }
-    @Test fun acceptsZeroButRejectsInvalidGrams() {
+    @Test fun acceptsSignedGramsWithoutArtificialBounds() {
         assertEquals(0.0, Nutrition.grams("0")!!, 0.001)
         assertEquals(23.4, Nutrition.grams(" 23.4 ")!!, 0.001)
-        listOf("", "-1", "NaN", "Infinity", "5000.1", "hello").forEach { assertNull(Nutrition.grams(it)) }
+        assertEquals(-1.0, Nutrition.grams("-1")!!, 0.0)
+        assertEquals(5000.1, Nutrition.grams("5000.1")!!, 0.0)
+        listOf("", "NaN", "Infinity", "hello").forEach { assertNull(Nutrition.grams(it)) }
     }
 }

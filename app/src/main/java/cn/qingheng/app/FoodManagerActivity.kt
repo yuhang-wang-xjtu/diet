@@ -53,6 +53,9 @@ class FoodManagerActivity : ComponentActivity() {
         val add = LinearLayout(this)
         add.addView(Button(this).apply { text = "＋ 食物"; setOnClickListener { library().edit(null, false) { render() } } }, LinearLayout.LayoutParams(0, -2, 1f))
         add.addView(Button(this).apply { text = "＋ 配方"; setOnClickListener { library().edit(null, true) { render() } } }, LinearLayout.LayoutParams(0, -2, 1f)); root.addView(add)
+        root.addView(Button(this).apply { text = "复制内置或已有食物"; setOnClickListener {
+            FoodLibraryUi(this@FoodManagerActivity, store, photos) { food -> library().edit(food?.copy(id = 0)) { render() } }.show()
+        } })
         root.setOnApplyWindowInsetsListener { v, insets ->
             if (android.os.Build.VERSION.SDK_INT >= 30) { val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime()); v.setPadding(dp(20) + bars.left, dp(12) + bars.top, dp(20) + bars.right, dp(12) + bars.bottom) }
             else { @Suppress("DEPRECATION") v.setPadding(dp(20), dp(12) + insets.systemWindowInsetTop, dp(20), dp(12) + insets.systemWindowInsetBottom) }

@@ -15,7 +15,7 @@ object Nutrition {
         val values = foods.mapNotNull(nutrient)
         return NutrientTotal(values.sum(), values.size, foods.size)
     }
-    fun grams(raw: String): Double? = Expressions.evaluate(raw)?.takeIf { it in 0.0..5000.0 }
+    fun grams(raw: String): Double? = Expressions.evaluate(raw)
     fun proteinTarget(weights: List<Weight>, date: String, custom: Double?): Double? = custom ?: weights
         .filter { it.date <= date }.maxByOrNull { it.date }?.let { it.kg * 0.83 }
 }
