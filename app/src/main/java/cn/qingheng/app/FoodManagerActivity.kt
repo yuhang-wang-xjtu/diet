@@ -84,7 +84,7 @@ class FoodManagerActivity : ComponentActivity() {
             val value = field.text.toString().trim()
             if (value.isBlank() || value.length > 30) field.error = "请输入1–30字分类"
             else { store.moveQuickFoods(foods.map { it.id }.toSet(), value); dialog.dismiss(); category = value; render() }
-        } }; dialog.show()
+        } }; dialog.show(); FormKeyboard(field) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     override fun onDestroy() { store.close(); super.onDestroy() }
 }

@@ -18,7 +18,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
     private fun field(c: LinearLayout, title: String, value: String = "", number: Boolean = false): EditText {
         label(c, title)
         return EditText(activity).apply {
-            setText(value); textSize = 16f; minHeight = dp(48); setSingleLine(true)
+            setText(value); textSize = 16f; minHeight = dp(48); setSingleLine(true); hint = title
             inputType = InputType.TYPE_CLASS_TEXT
             if (number) NumberInput.configure(this, value)
             c.addView(this)
@@ -45,6 +45,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
         val date = existing?.date ?: targetDate
         val weight = ExerciseMath.weightAt(store.weights(), date)
         val c = column(); label(c, "$date · 手动运动")
+        var keyboard: FormKeyboard? = null
         val name = field(c, "运动种类 / 强度，例如慢跑、较强骑行", existing?.name ?: "")
         val mode = spinner(c, listOf("按单位时间消耗 × 时长", "直接填写额外总消耗"), if (existing != null && existing.exerciseRate == null) 1 else 0)
         val r = field(c, "单位时间消耗", existing?.exerciseRate?.toString() ?: "", true)
@@ -66,6 +67,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
         fun update() {
             val byRate = mode.selectedItemPosition == 0
             r.isEnabled = byRate; units.isEnabled = byRate; kinds.isEnabled = byRate; direct.isEnabled = !byRate; saveType.isEnabled = byRate
+            keyboard?.refresh()
             preview.text = calculated()?.let { "本次计入额外消耗：${FoodValues.f(it)} kcal" } ?: "填写有效时长和消耗；总消耗模式还需要体重。"
         }
         listOf(r, minutes, direct).forEach { NumberInput.onFinished(it) { update() } }; listOf(mode, units, kinds).forEach { selected(it) { update() } }; update()
@@ -98,7 +100,7 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
                     d.dismiss(); changed()
                 }
             }
-        } }; d.show()
+        } }; d.show(); keyboard = FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     fun manage() {
         val types = store.exerciseTemplates()
@@ -122,6 +124,6 @@ class ExerciseUi(private val activity: Activity, private val store: Store, priva
             if (name.text.isBlank() || name.text.length > 80) name.error = "请输入1–80字名称"
             else if (value == null) r.error = "需大于0且不超过500 kcal/分钟（或30000 kcal/小时）"
             else { store.saveExerciseTemplate(ExerciseTemplate(t?.id ?: 0, NumberInput.raw(name).trim(), value, if (kind.selectedItemPosition == 1) ExerciseRateKind.TOTAL else ExerciseRateKind.ACTIVE)); d.dismiss(); manage() }
-        } }; d.show()
+        } }; d.show(); FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
 }

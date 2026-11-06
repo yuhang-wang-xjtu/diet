@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class UnifiedFoodInputTest {
+    @Test fun blankReferenceAndActualGramsBothDefaultTo100WithoutReplacingZeroOrNegative() {
+        assertEquals(100.0, FoodInputDraft.grams("")!!, 0.0)
+        assertEquals(100.0, FoodInputDraft.grams("  ")!!, 0.0)
+        assertEquals(0.0, FoodInputDraft.grams("0")!!, 0.0)
+        assertEquals(-25.0, FoodInputDraft.grams("-100/4")!!, 0.0)
+        val reference = EntryNutrients(200.0, 10.0, null, 5.0, null)
+        assertEquals(reference, FoodPortion(FoodInputDraft.grams("")!!, FoodInputDraft.grams("")!!, reference).values)
+    }
+    @Test fun malformedGramsDoNotSilentlyUse100AndUnknownRecipeWeightRemainsUnknown() {
+        listOf("abc", "100g", "1/0", "NaN").forEach { assertNull(FoodInputDraft.grams(it)) }
+        assertNull(FoodInputDraft.grams("", default = null))
+        assertEquals(250.0, FoodInputDraft.grams("500/2", default = null)!!, 0.0)
+    }
     @Test fun defaultsTo100gAndLeavesActualGramsForManualInput() {
         val food = QuickFood(name = "食物", basisGrams = 250.0, values = FoodValues(500.0, 25.0, 50.0, 10.0))
         val draft = FoodInputDraft.fromFood(food)

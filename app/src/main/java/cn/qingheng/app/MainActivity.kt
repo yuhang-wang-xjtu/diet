@@ -204,6 +204,7 @@ class MainActivity : ComponentActivity() {
         hero.setOnClickListener { tab = 3; render() }
         space(hero)
         hero.addView(text(if (automatic) "全天总消耗（已含活动） − 饮食摄入" else "日常消耗  +  额外运动  −  饮食摄入", 12f, Color.WHITE))
+        energyHistoryCard()
         val metrics = card()
         metric(metrics, "饮食摄入", "${fmt(t.intake)} kcal", "本日 ${entries.count { it.kind == "food" }} 条记录")
         space(metrics); metric(metrics, "运动记录", "${fmt(t.exercise)} kcal", if (automatic) "活动已包含在全天估算中，此处展示记录，不再叠加" else "含手动运动与计入的步行净消耗")
@@ -334,9 +335,12 @@ class MainActivity : ComponentActivity() {
         c.addView(button("设置营养目标") { tab = 3; render() })
     }
     private fun trends() {
-        heading("体重的轨迹", "关注长期变化，也接纳每天的起伏")
+        heading("体重与热量趋势", "关注长期变化，也接纳每天的起伏")
+        dateRow()
+        energyHistoryCard()
+        val end = minOf(date, LocalDate.now())
         val all = store.weights()
-        val recent = all.filter { LocalDate.parse(it.date) >= LocalDate.now().minusDays(29) && LocalDate.parse(it.date) <= LocalDate.now() }
+        val recent = all.filter { LocalDate.parse(it.date) >= end.minusDays(29) && LocalDate.parse(it.date) <= end }
         val c = card()
         c.addView(text("最近 30 天", 14f, muted))
         if (recent.isEmpty()) { space(c); c.addView(text("从第一次记录开始", 24f, bold = true)); c.addView(text("记录体重后，这里会出现变化曲线。", 13f, muted)) }
@@ -353,6 +357,28 @@ class MainActivity : ComponentActivity() {
             val r = row().apply { setPadding(0, dp(14), 0, dp(14)); setOnClickListener { weightDialog(w) } }
             r.addView(text(w.date, 14f, muted), LinearLayout.LayoutParams(0, -2, 1f)); r.addView(text("${kg(w.kg)} kg  ›", 17f, bold = true)); history.addView(r)
         }
+    }
+    private fun energyHistoryCard() {
+        val end = minOf(date, LocalDate.now())
+        val start = end.minusDays(29).toString()
+        val entries = store.entries().filter { it.date >= start && it.date <= end.toString() }
+        val skipped = store.skippedMeals()
+        val profiles = store.profiles(); val weights = store.weights()
+        val steps = store.stepDays().associateBy { it.date }; val config = walkingConfig()
+        val c = card(); c.addView(text("累计热量缺口 · 估算", 19f, bold = true))
+        listOf(7, 30).forEach { days ->
+            val period = EnergyHistory.summarize(end, days, entries, skipped) { target, records ->
+                val daily = if (automatic) ProfileMath.estimate(ProfileMath.at(profiles, target), weights, target)?.expenditure else baseline
+                val walking = ExerciseMath.walking(steps[target], records, ExerciseMath.weightAt(weights, target), config)
+                Energy.totals(records, daily, walking.kcal ?: 0.0, addExercise = !automatic)
+            }
+            space(c, 14)
+            c.addView(text("近${days}天 · ${period.start} 至 ${period.end}", 12f, muted))
+            c.addView(text(period.deficit?.let { "${FoodValues.f(it)} kcal" } ?: "暂无可统计数据", 26f, green, true))
+            c.addView(text("已统计 ${period.countedDays}/$days 天 · 缺少饮食记录 ${period.missingFoodDays} 天 · 缺少消耗估算 ${period.missingBaselineDays} 天", 11f, muted))
+        }
+        space(c, 12)
+        c.addView(text("含截止日。正数为缺口，负数为盈余并抵扣累计；没有饮食记录且未将三餐全部标记没吃的日期不计入。按当前模式与各日有效资料估算，漏记食物或当天尚未结束会影响结果。", 11f, muted))
     }
     private fun profileSettings() {
         val today = LocalDate.now().toString()
@@ -426,7 +452,7 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "资料已保存，从今天生效", Toast.LENGTH_SHORT).show()
                 }
             }
-        } }; d.show()
+        } }; d.show(); FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     private fun settings() {
         heading("按自己的节奏", "你的数据，保存在这台设备上")
@@ -438,11 +464,11 @@ class MainActivity : ComponentActivity() {
         val c = card(); c.addView(text("日常消耗基准", 19f, bold = true)); space(c, 8)
         c.addView(text("填写每日消耗基准，不重复包含另记的运动与步数步行。若你的基准已包含日常走路，请在步数卡片关闭该日步行计热。该基准统一用于所有日期。", 13f, muted)); space(c)
         val field = input("每日消耗（kcal）", baseline?.let { fmt(it) } ?: "", true); c.addView(field); space(c)
-        c.addView(button("保存消耗基准", true) {
+        val saveBaseline = button("保存消耗基准", true) {
             val n = Energy.number(NumberInput.raw(field), 20000.0)
             if (n == null) field.error = "请输入大于 0、至多 20000 的数值"
             else { prefs.edit().putFloat("baseline", n.toFloat()).putBoolean("automatic_body", false).apply(); Toast.makeText(this, "已保存并切换到手动消耗模式", Toast.LENGTH_SHORT).show(); render() }
-        })
+        }; c.addView(saveBaseline); FormKeyboard(c) { saveBaseline.performClick() }
         val explanation = card(); explanation.addView(text("缺口如何计算", 19f, bold = true)); space(explanation, 8)
         explanation.addView(text("自动模式：缺口 = 全天总消耗 − 饮食摄入。活动水平包含平时走路和运动，所有运动记录只展示，不再次叠加。\n\n手动模式：缺口 = 日常消耗基准 + 额外运动（含选中的步行）− 摄入。请确保基准不包含另记的活动。正数代表消耗大于摄入；全天完整记录后才有参考意义。", 14f, muted))
         val data = card(); data.addView(text("数据与隐私", 19f, bold = true)); space(data, 8)
@@ -504,7 +530,7 @@ class MainActivity : ComponentActivity() {
             val n = Expressions.integer(NumberInput.raw(count))
             if (n == null || n !in 0..300000) count.error = "请输入0–300000整数步数"
             else { stepsJob?.cancel(); store.saveSteps(StepDay(target, n, "manual", System.currentTimeMillis(), include.isChecked)); stepsMessages[target] = "已保存手动总步数"; d.dismiss(); render() }
-        } }; d.show()
+        } }; d.show(); FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     private fun syncSteps(targetDate: LocalDate, request: Boolean = false, replaceManual: Boolean = false) {
         val target = targetDate.toString()
@@ -715,14 +741,14 @@ class MainActivity : ComponentActivity() {
         c.addView(text("步行强度（MET）", 12f, muted)); c.addView(met)
         val presets = row(); listOf("慢走2.8" to 2.8, "中速3.8" to 3.8, "快走4.8" to 4.8).forEach { (label, value) -> presets.addView(button(label) { NumberInput.setValue(met, value) }, LinearLayout.LayoutParams(0, dp(48), 1f)) }; c.addView(presets)
         c.addView(text("估算步频（步/分钟，默认100，可自行校准）", 12f, muted)); c.addView(cadence)
-        c.addView(button("保存步行参数", true) {
+        val saveWalking = button("保存步行参数", true) {
             val m = Energy.number(NumberInput.raw(met), 20.0); val pace = Energy.number(NumberInput.raw(cadence), 200.0)
             when {
                 m == null || m < 1 -> met.error = "请输入1–20 MET"
                 pace == null || pace < 40 -> cadence.error = "请输入40–200步/分钟"
                 else -> { prefs.edit().putFloat("walking_met", m.toFloat()).putFloat("walking_cadence", pace.toFloat()).apply(); Toast.makeText(this, "已保存，历史步行估算也会更新", Toast.LENGTH_SHORT).show(); render() }
             }
-        })
+        }; c.addView(saveWalking); FormKeyboard(c) { saveWalking.performClick() }
         c.addView(text("步行分钟≈有效步数÷步频；额外kcal≈(MET−1)×体重kg×分钟÷60。来源：2024成人体力活动汇编，默认参数并非实测。修改参数会更新历史估算。", 11f, muted))
         c.addView(button("管理自定义运动种类与强度") { ExerciseUi(this, store, date.toString()) { render() }.manage() })
         c.addView(button("健康连接 / 数据源与权限") {
@@ -766,7 +792,7 @@ class MainActivity : ComponentActivity() {
         val fields = listOf("protein_goal" to "蛋白质目标（g/天）", "fat_goal" to "脂肪目标（g/天）", "carbs_goal" to "碳水目标（g/天）").map { (key, label) ->
             c.addView(text(label, 12f, muted)); val field = input("留空使用默认规则", goal(key)?.toString() ?: "", true); c.addView(field); key to field
         }
-        space(c, 8); c.addView(button("保存营养目标", true) {
+        space(c, 8); val saveNutrition = button("保存营养目标", true) {
             var valid = true
             val values = fields.map { (key, field) ->
                 val raw = NumberInput.raw(field).trim(); val n = Energy.number(raw, 5000.0)
@@ -777,7 +803,7 @@ class MainActivity : ComponentActivity() {
                 val editor = prefs.edit(); values.forEach { (key, n) -> if (n == null) editor.remove(key) else editor.putFloat(key, n.toFloat()) }; editor.apply()
                 Toast.makeText(this, "营养目标已保存", Toast.LENGTH_SHORT).show(); render()
             }
-        })
+        }; c.addView(saveNutrition); FormKeyboard(c) { saveNutrition.performClick() }
         space(c, 12)
         c.addView(text("蛋白质来源：EFSA 成人群体参考摄入量（2012）。此值是一般健康成人的参考，不是个体处方；孕哺期、未成年人、训练或疾病相关需求请使用适合自己的专业目标。", 11f, muted))
         c.addView(text("查看 EFSA 参考依据 ↗", 13f, green).apply { setPadding(0, dp(12), 0, dp(12)); setOnClickListener {
@@ -843,7 +869,7 @@ class MainActivity : ComponentActivity() {
                     MealReminders.resolve(this, targetDate, Meal.entries[mealPicker.selectedItemPosition]); dialog.dismiss(); render()
                 }
             }
-        } }; dialog.show()
+        } }; dialog.show(); FormKeyboard(c) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
 
     private fun weightDialog(existing: Weight? = null) {
@@ -856,7 +882,7 @@ class MainActivity : ComponentActivity() {
             val n = Energy.number(NumberInput.raw(field), 1000.0)
             if (n == null) field.error = "请输入大于 0、至多 1000 的体重"
             else { store.saveWeight(Weight(target, n)); d.dismiss(); render() }
-        } }; d.show()
+        } }; d.show(); FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     private fun confirmDelete(action: () -> Unit) { AlertDialog.Builder(this).setTitle("删除这条记录？").setMessage("删除后无法撤销。").setNegativeButton("取消", null).setPositiveButton("删除") { _, _ -> action() }.show() }
     @Deprecated("Legacy activity result API")

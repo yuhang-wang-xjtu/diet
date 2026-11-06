@@ -100,6 +100,8 @@ data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference
     companion object {
         const val DEFAULT_GRAMS = 100.0
         val MACRO_ORDER = listOf("protein", "fat", "carbs")
+        fun grams(raw: String, default: Double? = DEFAULT_GRAMS): Double? =
+            if (raw.isBlank()) default else FoodMath.number(raw)
         fun fromFood(food: QuickFood, actual: Double? = null) = FoodInputDraft(
             food.basisGrams?.let { DEFAULT_GRAMS }, actual,
             food.values.nutrients().let { n -> food.basisGrams?.let { n.scale(DEFAULT_GRAMS / it) } ?: n })

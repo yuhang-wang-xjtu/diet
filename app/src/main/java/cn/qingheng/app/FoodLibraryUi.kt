@@ -20,7 +20,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
     private fun field(c: LinearLayout, title: String, value: String = "", numeric: Boolean = false, multiline: Boolean = false): EditText {
         label(c, title)
         return EditText(activity).apply {
-            setText(value); textSize = 15f; minHeight = dp(48)
+            setText(value); textSize = 15f; minHeight = dp(48); hint = title
             inputType = InputType.TYPE_CLASS_TEXT or if (multiline) InputType.TYPE_TEXT_FLAG_MULTI_LINE else 0
             if (numeric) NumberInput.configure(this, value)
             setSingleLine(!multiline); if (multiline) minLines = 2
@@ -41,7 +41,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             if (photos.busy) Toast.makeText(activity, "图片处理中，请稍候再保存", Toast.LENGTH_SHORT).show() else if (save()) dialog.dismiss()
         } }
-        dialog.show(); return dialog
+        dialog.show(); FormKeyboard(body) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }; return dialog
     }
     fun show() { pickFood(createManual = { onSelect(null) }) { onSelect(it) } }
     private fun pickFood(createManual: (() -> Unit)? = null, pick: (QuickFood) -> Unit) {
@@ -81,7 +81,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
     private fun metadata(c: LinearLayout, existing: QuickFood?, defaultCategory: String): () -> Meta? {
         label(c, "分类标签（可选择或输入新分类）")
         val category = AutoCompleteTextView(activity).apply {
-            setSingleLine(true); minHeight = dp(48); threshold = 0
+            setSingleLine(true); minHeight = dp(48); threshold = 0; hint = "选择或输入分类标签"
             setAdapter(ArrayAdapter(activity, android.R.layout.simple_dropdown_item_1line, FoodCategories.categories(store.quickFoods() + FoodCatalog.all)))
             setText(existing?.let { FoodCategories.of(it) } ?: defaultCategory, false)
             setOnClickListener { showDropDown() }; c.addView(this)
@@ -102,7 +102,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         val c = column()
         val actual = initial?.takeIf { food.basisGrams != null }?.let { food.factor(it.amount, it.unit) * food.basisGrams!! }
         val fields = FoodNutritionInput(activity, c, food.name, FoodInputDraft.fromFood(food, actual))
-        label(c, "填写参考营养并手动输入实际克数。这里的修改只用于本次原料，不会改写已保存的快捷食物。")
+        label(c, "填写参考营养，实际克数可留空按100g。这里的修改只用于本次原料，不会改写已保存的快捷食物。")
         label(c, food.details())
         form(food.name, c, action) {
             val reference = fields.reference(requireMacros = true)

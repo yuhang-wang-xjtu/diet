@@ -18,7 +18,7 @@ object NumberInput {
     }
     fun configure(field: EditText, initial: String) {
         field.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        field.imeOptions = EditorInfo.IME_ACTION_DONE
+        field.imeOptions = EditorInfo.IME_ACTION_NEXT
         setRaw(field, initial)
         field.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -26,16 +26,14 @@ object NumberInput {
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
         field.setOnFocusChangeListener { _, focused -> if (!focused) finish(field) }
-        field.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_DONE) { val focused = field.hasFocus(); field.clearFocus(); if (!focused) finish(field); true } else false
-        }
     }
     fun onFinished(field: EditText, action: () -> Unit) { field.setTag(R.id.numeric_finished, action) }
     @Suppress("UNCHECKED_CAST")
-    private fun finish(field: EditText) {
+    fun finish(field: EditText): Boolean {
         val value = Expressions.evaluate(raw(field))
         field.error = if (field.text.isNotBlank() && value == null) "计算式无效：支持 + − × ÷、括号和%，不能除以0" else null
         if (value != null) setValue(field, value)
         (field.getTag(R.id.numeric_finished) as? (() -> Unit))?.invoke()
+        return field.text.isBlank() || value != null
     }
 }

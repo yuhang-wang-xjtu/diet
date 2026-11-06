@@ -64,7 +64,7 @@ class AppUpdates(private val activity: ComponentActivity, private val changed: (
                 status(if (value == null) "尚未配置GitHub更新源" else "更新源已保存，点击检查更新")
                 dialog.dismiss(); changed()
             }
-        } }; dialog.show()
+        } }; dialog.show(); FormKeyboard(box) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     fun check() {
         val source = repo ?: run { configure(); return }
