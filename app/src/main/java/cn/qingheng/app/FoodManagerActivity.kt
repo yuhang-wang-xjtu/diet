@@ -30,7 +30,7 @@ class FoodManagerActivity : ComponentActivity() {
         root.addView(TextView(this).apply { text = "编辑分类、图片、营养和配方。旧菜品保留在“原有菜品”；修改快捷项不改写历史记餐。"; textSize = 13f; setPadding(0, dp(8), 0, dp(8)) })
         val foods = store.quickFoods(); val categories = listOf("全部") + FoodCategories.categories(foods).filter { c -> foods.any { FoodCategories.of(it) == c } }
         if (category !in categories) category = "全部"
-        val picker = Spinner(this).apply { adapter = ArrayAdapter(this@FoodManagerActivity, android.R.layout.simple_spinner_dropdown_item, categories); setSelection(categories.indexOf(category)); minimumHeight = dp(48) }; root.addView(picker)
+        val picker = Spinner(this).apply { adapter = FoodCategoryAdapter(this@FoodManagerActivity, categories); setSelection(categories.indexOf(category)); minimumHeight = dp(48) }; root.addView(picker)
         val search = EditText(this).apply { hint = "搜索我的菜品"; setSingleLine(true); setText(query) }; root.addView(search)
         val count = TextView(this); root.addView(count)
         val grid = FoodTiles.grid(this); root.addView(grid, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -64,19 +64,21 @@ class FoodManagerActivity : ComponentActivity() {
     }
     private fun actions(food: QuickFood) {
         if (photos.busy) { Toast.makeText(this, "图片处理中，请稍候", Toast.LENGTH_SHORT).show(); return }
-        AlertDialog.Builder(this).setTitle(food.name).setItems(arrayOf("编辑菜品 / 配方", "修改分类", "选择图片", "使用默认图片", "删除快捷项")) { _, index -> when (index) {
+        fun saveImage(key: String) { store.quickFoods().find { it.id == food.id }?.let { store.saveQuickFood(it.copy(image = key)) }; render() }
+        AlertDialog.Builder(this).setTitle(food.name).setItems(arrayOf("编辑菜品 / 配方", "修改分类", "从食物图标素材中选择", "从手机选择照片", "使用默认图片", "删除快捷项")) { _, index -> when (index) {
             0 -> library().edit(food) { render() }
             1 -> changeCategory(listOf(food))
-            2 -> photos.choose { image -> store.quickFoods().find { it.id == food.id }?.let { store.saveQuickFood(it.copy(image = image)) }; render() }
-            3 -> { store.saveQuickFood(food.copy(image = "")); render() }
-            4 -> AlertDialog.Builder(this).setTitle("删除“${food.name}”？").setMessage("只删除快捷项，已记录的饮食和营养保留。").setPositiveButton("删除") { _, _ -> store.deleteQuickFood(food); render() }.setNegativeButton("取消", null).show()
+            2 -> FoodIconPicker.show(this, food.image, FoodCategories.of(food)) { saveImage(it) }
+            3 -> photos.choose { saveImage(it) }
+            4 -> saveImage("")
+            5 -> AlertDialog.Builder(this).setTitle("删除“${food.name}”？").setMessage("只删除快捷项，已记录的饮食和营养保留。").setPositiveButton("删除") { _, _ -> store.deleteQuickFood(food); render() }.setNegativeButton("取消", null).show()
         } }.setNegativeButton("关闭", null).show()
     }
     private fun changeCategory(foods: List<QuickFood>) {
         if (foods.isEmpty()) { Toast.makeText(this, "没有要调整的菜品", Toast.LENGTH_SHORT).show(); return }
         val field = AutoCompleteTextView(this).apply {
             hint = "输入或选择分类"; setSingleLine(true); threshold = 0
-            setAdapter(ArrayAdapter(this@FoodManagerActivity, android.R.layout.simple_dropdown_item_1line, FoodCategories.categories(store.quickFoods() + FoodCatalog.all)))
+            setAdapter(FoodCategoryAdapter(this@FoodManagerActivity, FoodCategories.categories(store.quickFoods() + FoodCatalog.all)))
             setOnClickListener { showDropDown() }
         }
         val dialog = AlertDialog.Builder(this).setTitle("调整${foods.size}项的分类").setView(field).setPositiveButton("保存", null).setNegativeButton("取消", null).create()

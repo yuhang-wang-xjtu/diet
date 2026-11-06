@@ -474,6 +474,7 @@ class MainActivity : ComponentActivity() {
         val data = card(); data.addView(text("数据与隐私", 19f, bold = true)); space(data, 8)
         data.addView(text("无需账号，健康记录保存在本机。仅在你检查更新及下载时访问GitHub，不上传饮食、体重或步数。卸载应用会删除数据。CSV导出包含食物、运动、步数、配方、体重及各项设置。", 13f, muted)); space(data)
         data.addView(button("导出全部记录 · CSV") { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "text/csv"; putExtra(Intent.EXTRA_TITLE, "轻衡-${LocalDate.now()}.csv") }, 12) })
+        data.addView(button("图标素材与许可") { FoodIconPicker.credits(this) })
         val updates = card(); updates.addView(text("应用更新", 19f, bold = true)); space(updates, 8)
         updates.addView(text("当前版本 ${appUpdates.version}\n更新源：${appUpdates.repo?.slug ?: "尚未配置GitHub仓库"}", 13f, muted))
         val updateStatus = text("", 13f, green); updates.addView(updateStatus); appUpdates.bind(updateStatus)

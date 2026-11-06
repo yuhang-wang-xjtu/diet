@@ -1,4 +1,6 @@
 <resources>
+    <string name="food_icon_picker_help">选择一个图标作为菜品封面。素材已内置，离线可用。</string>
+    <string name="food_icon_credits">食物图标：Microsoft Fluent Emoji（3D）\nhttps://github.com/microsoft/fluentui-emoji\n\n%1$s</string>
     <string name="food_gram_help">参考克数和实际克数留空均按100g；需要时手动修改。营养留空表示未知，填0表示确实为0。支持负数及计算式。</string>
     <string name="food_unknown_weight_help">此配方未保存熟重，请填写整锅成品克重；实际克数留空按100g。营养留空表示未知，填0表示确实为0。支持负数及计算式。</string>
 </resources>

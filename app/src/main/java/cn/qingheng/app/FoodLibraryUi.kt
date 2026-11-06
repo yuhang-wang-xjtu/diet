@@ -59,7 +59,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
             filtered = foods.filter { (category == null || FoodCategories.of(it) == category) && (it.name.contains(q, true) || FoodCatalog.aliases.any { alias -> alias.key.contains(q) && alias.value.id == it.id }) }
             categories = FoodCategories.categories(foods).filter { q.isBlank() || it.contains(q, true) || filtered.any { f -> FoodCategories.of(f) == it } }
             location.text = category?.let { "$it · ${filtered.size}项，点击方格选择实际份量" } ?: "先选择分类，再选择食物"
-            list.adapter = FoodTiles(activity, if (category == null) categories.map { name -> FoodTile(name, "${foods.count { FoodCategories.of(it) == name }}项") } else filtered.map { FoodTiles.food(it) })
+            list.adapter = FoodTiles(activity, if (category == null) categories.map { name -> FoodTile(name, "${foods.count { FoodCategories.of(it) == name }}项", FoodIcons.categoryKey(name)) } else filtered.map { FoodTiles.food(it) })
         }
         back.setOnClickListener { category = null; search.text.clear(); refresh() }
         refresh(); watch(search) { refresh() }
@@ -82,16 +82,26 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         label(c, "分类标签（可选择或输入新分类）")
         val category = AutoCompleteTextView(activity).apply {
             setSingleLine(true); minHeight = dp(48); threshold = 0; hint = "选择或输入分类标签"
-            setAdapter(ArrayAdapter(activity, android.R.layout.simple_dropdown_item_1line, FoodCategories.categories(store.quickFoods() + FoodCatalog.all)))
+            setAdapter(FoodCategoryAdapter(activity, FoodCategories.categories(store.quickFoods() + FoodCatalog.all)))
             setText(existing?.let { FoodCategories.of(it) } ?: defaultCategory, false)
             setOnClickListener { showDropDown() }; c.addView(this)
         }
         var image = existing?.image ?: ""
-        val preview = ImageView(activity); c.addView(preview, LinearLayout.LayoutParams(-1, dp(120))); FoodPhotos.display(preview, image)
-        button(c, "选择食物图片（仅保存在手机）") { photos.choose { key -> image = key; FoodPhotos.display(preview, key) } }
+        val preview = ImageView(activity); c.addView(preview, LinearLayout.LayoutParams(-1, dp(120)))
+        fun refreshImage() {
+            val fallback = if (existing != null && FoodCategories.of(existing) == FoodCategories.clean(category.text.toString()))
+                FoodIcons.defaultFor(existing) else FoodIcons.categoryKey(category.text.toString())
+            FoodPhotos.display(preview, image, fallback)
+        }
+        refreshImage(); watch(category) { refreshImage() }
+        button(c, "从食物图标素材中选择") {
+            if (photos.busy) Toast.makeText(activity, "图片处理中，请稍候", Toast.LENGTH_SHORT).show()
+            else FoodIconPicker.show(activity, image, category.text.toString()) { key -> image = key; refreshImage() }
+        }
+        button(c, "从手机选择照片（仅保存在手机）") { photos.choose { key -> image = key; refreshImage() } }
         button(c, "使用默认图片") {
             if (photos.busy) Toast.makeText(activity, "图片处理中，请稍候", Toast.LENGTH_SHORT).show()
-            else { image = ""; FoodPhotos.display(preview, image) }
+            else { image = ""; refreshImage() }
         }
         return {
             val value = NumberInput.raw(category).trim()

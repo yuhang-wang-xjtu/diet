@@ -1,0 +1,550 @@
+{
+  "project": "Microsoft Fluent Emoji",
+  "source": "https://github.com/microsoft/fluentui-emoji",
+  "commit": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+  "license": "MIT",
+  "style": "3D",
+  "modified": false,
+  "icons": [
+    {
+      "id": "pot_of_food",
+      "title": "汤锅",
+      "category": "菜品",
+      "sourcePath": "assets/Pot of food/3D/pot_of_food_3d.png",
+      "gitBlob": "baa6af734dc688fc2d5c5ed568c605f1ddf50d35",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Pot%20of%20food/3D/pot_of_food_3d.png",
+      "sha256": "6cd6e6d2a80107bb017e385c40d2ac3281aff24fa6bf2ab1a912650c38c6ee8d",
+      "bytes": 37590
+    },
+    {
+      "id": "shallow_pan_of_food",
+      "title": "炖菜",
+      "category": "菜品",
+      "sourcePath": "assets/Shallow pan of food/3D/shallow_pan_of_food_3d.png",
+      "gitBlob": "e9cd86c73a941bad0192cc53b513e1be1423a479",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Shallow%20pan%20of%20food/3D/shallow_pan_of_food_3d.png",
+      "sha256": "b0aea6eb26f4e0e7ed4de40c5b684bf1ccffca528cb7c219ec20d187422d9b63",
+      "bytes": 39746
+    },
+    {
+      "id": "bento_box",
+      "title": "便当",
+      "category": "菜品",
+      "sourcePath": "assets/Bento box/3D/bento_box_3d.png",
+      "gitBlob": "10b76a9106fe02d14341a1fe4039b9df4d299d20",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Bento%20box/3D/bento_box_3d.png",
+      "sha256": "7578704a1f66d8f5bf47c4be398bd3f33c6cbce2c3900703a3eec460994d4946",
+      "bytes": 32185
+    },
+    {
+      "id": "green_salad",
+      "title": "沙拉",
+      "category": "菜品",
+      "sourcePath": "assets/Green salad/3D/green_salad_3d.png",
+      "gitBlob": "9266766d08160dc40af754587e2485d61770b294",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Green%20salad/3D/green_salad_3d.png",
+      "sha256": "ae85a5cdb434cfbeef8f512c14a9a76796634bb6b402010d1a915886f24a1380",
+      "bytes": 46826
+    },
+    {
+      "id": "sushi",
+      "title": "寿司",
+      "category": "菜品",
+      "sourcePath": "assets/Sushi/3D/sushi_3d.png",
+      "gitBlob": "e78594a7a5f4e2f893a203a89229fbeab045f2fd",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Sushi/3D/sushi_3d.png",
+      "sha256": "5992070c8e4af0af12643e16999606b891bfd5b49b0f8aa33e9bf9e7bba5ed68",
+      "bytes": 32700
+    },
+    {
+      "id": "dumpling",
+      "title": "饺子",
+      "category": "菜品",
+      "sourcePath": "assets/Dumpling/3D/dumpling_3d.png",
+      "gitBlob": "e15aa3c55ff46d2f10ff810e225e73a51e6eb226",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Dumpling/3D/dumpling_3d.png",
+      "sha256": "79938989161be1b37415ae7e7715611c5858e2e38d786d79de751f795116a3ff",
+      "bytes": 34982
+    },
+    {
+      "id": "curry_rice",
+      "title": "咖喱饭",
+      "category": "菜品",
+      "sourcePath": "assets/Curry rice/3D/curry_rice_3d.png",
+      "gitBlob": "d55e866782e71f2db8c1ddb4647e1928142e01a6",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Curry%20rice/3D/curry_rice_3d.png",
+      "sha256": "d143dd5a5abbb7018404580e44c84c9756b51accf73f25d837257f4f377db734",
+      "bytes": 37496
+    },
+    {
+      "id": "cooking",
+      "title": "煎蛋",
+      "category": "菜品",
+      "sourcePath": "assets/Cooking/3D/cooking_3d.png",
+      "gitBlob": "c74bb03619af75837ea2096b62a4d4396cbe2e96",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cooking/3D/cooking_3d.png",
+      "sha256": "bb6b8501b89493b8bf29209b87f14bfc0a347750ab693ce21fe81741c2128fe4",
+      "bytes": 32277
+    },
+    {
+      "id": "cooked_rice",
+      "title": "米饭",
+      "category": "主食",
+      "sourcePath": "assets/Cooked rice/3D/cooked_rice_3d.png",
+      "gitBlob": "2ada7526c0abba61d23e93e41cfe73d8ac40026b",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cooked%20rice/3D/cooked_rice_3d.png",
+      "sha256": "8fb8d0a253eec06e8f0bc7cea6f77cbe16454d689d29609349da33f18d04bf56",
+      "bytes": 41496
+    },
+    {
+      "id": "bread",
+      "title": "面包",
+      "category": "主食",
+      "sourcePath": "assets/Bread/3D/bread_3d.png",
+      "gitBlob": "621ffb4f6b0fc22931ccc55d6a6396698ad83669",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Bread/3D/bread_3d.png",
+      "sha256": "648d935809d028ce4b583a77a2206d11c54ff981d392703c7fb68dd5c90f0315",
+      "bytes": 33316
+    },
+    {
+      "id": "flatbread",
+      "title": "烙饼",
+      "category": "主食",
+      "sourcePath": "assets/Flatbread/3D/flatbread_3d.png",
+      "gitBlob": "a144585daf21174b4715f4b9ffb735172faa518e",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Flatbread/3D/flatbread_3d.png",
+      "sha256": "168762b1a2ddd08454f1431833e02b6a4e104b895866e8086f0615ee63c025f3",
+      "bytes": 35816
+    },
+    {
+      "id": "baguette_bread",
+      "title": "法棍",
+      "category": "主食",
+      "sourcePath": "assets/Baguette bread/3D/baguette_bread_3d.png",
+      "gitBlob": "85c5a3b6a97f63db1163dbc10a06c28658f38093",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Baguette%20bread/3D/baguette_bread_3d.png",
+      "sha256": "d03898f1c2cc6638aac2d7c1bf14a26d3f3d39703d935eb0b8116be1416a5659",
+      "bytes": 25110
+    },
+    {
+      "id": "steaming_bowl",
+      "title": "面条",
+      "category": "主食",
+      "sourcePath": "assets/Steaming bowl/3D/steaming_bowl_3d.png",
+      "gitBlob": "4240eba58442436bb990429a6398a485eb6fbd9d",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Steaming%20bowl/3D/steaming_bowl_3d.png",
+      "sha256": "753c2250ef9f60fe4933e21ee1d53e6820413486f75bffc29ef092957bae583b",
+      "bytes": 28221
+    },
+    {
+      "id": "spaghetti",
+      "title": "意面",
+      "category": "主食",
+      "sourcePath": "assets/Spaghetti/3D/spaghetti_3d.png",
+      "gitBlob": "fc2d78ae97d8201370606c64a7a5be4d6b385f07",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Spaghetti/3D/spaghetti_3d.png",
+      "sha256": "466b00d96569fb84dd8f975ed39ff9d8af9488a5877f8075d39c847a8323bdaf",
+      "bytes": 46905
+    },
+    {
+      "id": "rice_ball",
+      "title": "饭团",
+      "category": "主食",
+      "sourcePath": "assets/Rice ball/3D/rice_ball_3d.png",
+      "gitBlob": "f111f6a0494689b10a7df1caa9225cc204ce1d39",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Rice%20ball/3D/rice_ball_3d.png",
+      "sha256": "c5ff45239dd720ed7f41fa0449904e1bbb4f3b2b478f7c33dcc096115f31b3a1",
+      "bytes": 32404
+    },
+    {
+      "id": "sandwich",
+      "title": "三明治",
+      "category": "主食",
+      "sourcePath": "assets/Sandwich/3D/sandwich_3d.png",
+      "gitBlob": "cf883c297ecc851de91770736095f231a5b1a545",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Sandwich/3D/sandwich_3d.png",
+      "sha256": "1fe904d9e97d7d42e66a717ee445a58f32f7d330caa2d574fc100c324cd277c0",
+      "bytes": 38613
+    },
+    {
+      "id": "glass_of_milk",
+      "title": "牛奶",
+      "category": "饮品",
+      "sourcePath": "assets/Glass of milk/3D/glass_of_milk_3d.png",
+      "gitBlob": "f86bf7afbf46311dd89780261e9a32c7ba6155e1",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Glass%20of%20milk/3D/glass_of_milk_3d.png",
+      "sha256": "7ee5292b46edaa06d94bf719b02ffae4c96e95a8ae7f960cb90f24f1ccd99320",
+      "bytes": 26609
+    },
+    {
+      "id": "teacup_without_handle",
+      "title": "茶",
+      "category": "饮品",
+      "sourcePath": "assets/Teacup without handle/3D/teacup_without_handle_3d.png",
+      "gitBlob": "2823e509f1c009a2676418af14b2d478d58b1a8e",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Teacup%20without%20handle/3D/teacup_without_handle_3d.png",
+      "sha256": "dfe2e8975bab243637c9d05a2453850c99fe4a4b9c762f55fd8b631dfadff954",
+      "bytes": 31178
+    },
+    {
+      "id": "hot_beverage",
+      "title": "咖啡",
+      "category": "饮品",
+      "sourcePath": "assets/Hot beverage/3D/hot_beverage_3d.png",
+      "gitBlob": "4317ed5f1ed6c36d486e49eb1da024c79ddd482c",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Hot%20beverage/3D/hot_beverage_3d.png",
+      "sha256": "edeaa3fca5eace5f2546efcd3b3e42ef1fd389a0c51d374dbf7863731db8f314",
+      "bytes": 44337
+    },
+    {
+      "id": "bubble_tea",
+      "title": "奶茶",
+      "category": "饮品",
+      "sourcePath": "assets/Bubble tea/3D/bubble_tea_3d.png",
+      "gitBlob": "a55bbbdeebee183753d0f7ce6435317c7224e211",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Bubble%20tea/3D/bubble_tea_3d.png",
+      "sha256": "a641ba6510d10b00d861406412a3e72eecec2ad78b00dfbe570e441a54a22377",
+      "bytes": 24622
+    },
+    {
+      "id": "beverage_box",
+      "title": "盒装饮料",
+      "category": "饮品",
+      "sourcePath": "assets/Beverage box/3D/beverage_box_3d.png",
+      "gitBlob": "048dd8cf04bd34655d7dc1c9a9afff42b76ea186",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Beverage%20box/3D/beverage_box_3d.png",
+      "sha256": "843391a919872f7bf989de53cbf628ff0e8fdf7f1e685dad2a1a9561d990b55b",
+      "bytes": 22391
+    },
+    {
+      "id": "cup_with_straw",
+      "title": "饮料",
+      "category": "饮品",
+      "sourcePath": "assets/Cup with straw/3D/cup_with_straw_3d.png",
+      "gitBlob": "ccde996afa200593c070669c6c5525bcfe47f8bb",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cup%20with%20straw/3D/cup_with_straw_3d.png",
+      "sha256": "7005731a952d0043c604fea15f3286c704e2eef599530e910ef125f9f3ebcf0f",
+      "bytes": 18153
+    },
+    {
+      "id": "egg",
+      "title": "鸡蛋",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Egg/3D/egg_3d.png",
+      "gitBlob": "b8f6e97927d26483d544675a5800401a2d9ac311",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Egg/3D/egg_3d.png",
+      "sha256": "efc307f317a1b758eb43152e1354fb407b3cb587f849db15c9ac0f9fcb025400",
+      "bytes": 19920
+    },
+    {
+      "id": "poultry_leg",
+      "title": "鸡腿",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Poultry leg/3D/poultry_leg_3d.png",
+      "gitBlob": "84ef0719c24721e921335b121d02277109217603",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Poultry%20leg/3D/poultry_leg_3d.png",
+      "sha256": "b2edc05ff8a3b2fd21c87f884cc5e0062b276f23f6ecdb025002fc3ad2096293",
+      "bytes": 27279
+    },
+    {
+      "id": "cut_of_meat",
+      "title": "肉类",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Cut of meat/3D/cut_of_meat_3d.png",
+      "gitBlob": "4cc3b607b1f1774abe9efb8dd2648815264530c3",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cut%20of%20meat/3D/cut_of_meat_3d.png",
+      "sha256": "6e7acfe4aa38cf292fcdd75036685f9636aff6123c132f33ed8d3a2883447abc",
+      "bytes": 31113
+    },
+    {
+      "id": "fish",
+      "title": "鱼",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Fish/3D/fish_3d.png",
+      "gitBlob": "e358f73e1fb64f6b96bf255e81ae8314974f22fb",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Fish/3D/fish_3d.png",
+      "sha256": "d219342f1f416f2a89b5f6d412743bc809ac75d3be3d8cff0bc0cf5af5e288fa",
+      "bytes": 29593
+    },
+    {
+      "id": "shrimp",
+      "title": "虾",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Shrimp/3D/shrimp_3d.png",
+      "gitBlob": "036be36bbb628b48b97ed0b25324acf3c3815b48",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Shrimp/3D/shrimp_3d.png",
+      "sha256": "8eb4957b0e2605afc8e9798eb0ff24ef462e380e048ef9608238a9ca08307fd5",
+      "bytes": 40260
+    },
+    {
+      "id": "cheese_wedge",
+      "title": "奶酪",
+      "category": "蛋奶肉类",
+      "sourcePath": "assets/Cheese wedge/3D/cheese_wedge_3d.png",
+      "gitBlob": "b0b4772949c20d2a4f43ed774e0a24b8971d875d",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cheese%20wedge/3D/cheese_wedge_3d.png",
+      "sha256": "66966a3b1f27f802260988cde7ab2419525300e9747bcb92657c3f544e0568d7",
+      "bytes": 26839
+    },
+    {
+      "id": "tomato",
+      "title": "番茄",
+      "category": "蔬果",
+      "sourcePath": "assets/Tomato/3D/tomato_3d.png",
+      "gitBlob": "a1a12daab482e84431e8abca4e03d724396ee93c",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Tomato/3D/tomato_3d.png",
+      "sha256": "563f6a0c3b5f7bc614689ecb724a169eab3cfc8fff9c866654529d0692b8033e",
+      "bytes": 36434
+    },
+    {
+      "id": "carrot",
+      "title": "胡萝卜",
+      "category": "蔬果",
+      "sourcePath": "assets/Carrot/3D/carrot_3d.png",
+      "gitBlob": "c3bd2484bf90aaba7b6eb4f11d48cc5cba4d0ee9",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Carrot/3D/carrot_3d.png",
+      "sha256": "add5179377b74ccfb6dc4bcf603aeb80fd8de23e1411bb63ce72db1286cea6a8",
+      "bytes": 36928
+    },
+    {
+      "id": "broccoli",
+      "title": "西兰花",
+      "category": "蔬果",
+      "sourcePath": "assets/Broccoli/3D/broccoli_3d.png",
+      "gitBlob": "7cc5229d6f2e503506bf3b0465ed93c7e0e67259",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Broccoli/3D/broccoli_3d.png",
+      "sha256": "692ef3447f34a427fee05f69581c75ed212ad702127d2e838ad63589d5151ad4",
+      "bytes": 40060
+    },
+    {
+      "id": "cucumber",
+      "title": "黄瓜",
+      "category": "蔬果",
+      "sourcePath": "assets/Cucumber/3D/cucumber_3d.png",
+      "gitBlob": "07777cce7163ab16b4188c7e184f0c1d14ced820",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cucumber/3D/cucumber_3d.png",
+      "sha256": "fd7298b145e399a927b84eebe591f3268c4528268cc06178eba946ee0b27a228",
+      "bytes": 28489
+    },
+    {
+      "id": "leafy_green",
+      "title": "绿叶菜",
+      "category": "蔬果",
+      "sourcePath": "assets/Leafy green/3D/leafy_green_3d.png",
+      "gitBlob": "d97d0f95169dcbbf4d0808d6abdc819d5c249599",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Leafy%20green/3D/leafy_green_3d.png",
+      "sha256": "168df98bd3237324bc40e3bb3808448ba488e1841b441fe120196c380891ace0",
+      "bytes": 48661
+    },
+    {
+      "id": "ear_of_corn",
+      "title": "玉米",
+      "category": "蔬果",
+      "sourcePath": "assets/Ear of corn/3D/ear_of_corn_3d.png",
+      "gitBlob": "25bf51f34a559a5d2ba43ac622a6d3d725bb324d",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Ear%20of%20corn/3D/ear_of_corn_3d.png",
+      "sha256": "ed99feeaf391a301ed16480b0e6bf8bbe8e470d9e036a7fe77b4a5e19af2b696",
+      "bytes": 44104
+    },
+    {
+      "id": "potato",
+      "title": "土豆",
+      "category": "蔬果",
+      "sourcePath": "assets/Potato/3D/potato_3d.png",
+      "gitBlob": "47cfb14691e5d175ed585ca92d8254b8749c7dfb",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Potato/3D/potato_3d.png",
+      "sha256": "0994a09ce69d258dedba2264ff5ef8ee4c3cffe72306f5a202fa7acf96ae1e18",
+      "bytes": 27805
+    },
+    {
+      "id": "roasted_sweet_potato",
+      "title": "红薯",
+      "category": "蔬果",
+      "sourcePath": "assets/Roasted sweet potato/3D/roasted_sweet_potato_3d.png",
+      "gitBlob": "12b0b56db62b5f752e5a9ab10b2f87522870f3cd",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Roasted%20sweet%20potato/3D/roasted_sweet_potato_3d.png",
+      "sha256": "725e10e65572d344aec1cd33d1777866933aca7664c0ca66b516ca3ca7e4cc54",
+      "bytes": 24743
+    },
+    {
+      "id": "red_apple",
+      "title": "苹果",
+      "category": "蔬果",
+      "sourcePath": "assets/Red apple/3D/red_apple_3d.png",
+      "gitBlob": "ae9b06c718d7b8f201f46bfe608fa7ecd31eeed3",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Red%20apple/3D/red_apple_3d.png",
+      "sha256": "7e37f4ad4d227d283f9afad0605fcddf67406bf8c6c4964419efbd23de7ad60c",
+      "bytes": 43984
+    },
+    {
+      "id": "banana",
+      "title": "香蕉",
+      "category": "蔬果",
+      "sourcePath": "assets/Banana/3D/banana_3d.png",
+      "gitBlob": "34586c3c2799c5710c0416a0cdcf3a7ef1df33a5",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Banana/3D/banana_3d.png",
+      "sha256": "b82cd3cc7e56e70026b599aeec5d811568b507adc96473bf854096f5e67d92a5",
+      "bytes": 25891
+    },
+    {
+      "id": "grapes",
+      "title": "葡萄",
+      "category": "蔬果",
+      "sourcePath": "assets/Grapes/3D/grapes_3d.png",
+      "gitBlob": "3cda1551fb6a473c4e24cb973e918a6bee64a6cc",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Grapes/3D/grapes_3d.png",
+      "sha256": "862ea99e063a228682b5b2da59613ddb2e64d7ad0144712125eb34d9cd2fa36d",
+      "bytes": 32318
+    },
+    {
+      "id": "strawberry",
+      "title": "草莓",
+      "category": "蔬果",
+      "sourcePath": "assets/Strawberry/3D/strawberry_3d.png",
+      "gitBlob": "e735269d0bdd58c9376311edfa8cc73c46e0fa7a",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Strawberry/3D/strawberry_3d.png",
+      "sha256": "446d640c24e146d03e8382c61ae52862848b11aadf74e7b47d200bc44d2f0223",
+      "bytes": 29831
+    },
+    {
+      "id": "watermelon",
+      "title": "西瓜",
+      "category": "蔬果",
+      "sourcePath": "assets/Watermelon/3D/watermelon_3d.png",
+      "gitBlob": "73142e41d0ecaf1fad643edcdf36cc33e4d9e6cb",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Watermelon/3D/watermelon_3d.png",
+      "sha256": "00bacc111ae855cf0621d35ba987d519c07fb4103500edc4af2152fa6d27177e",
+      "bytes": 29186
+    },
+    {
+      "id": "avocado",
+      "title": "牛油果",
+      "category": "蔬果",
+      "sourcePath": "assets/Avocado/3D/avocado_3d.png",
+      "gitBlob": "c6059a67c49392b2d6004e7d81cfd9347d298b7d",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Avocado/3D/avocado_3d.png",
+      "sha256": "526f16895dee591111aa502e6a07e3a8cd6262b4189be7f670c82a76e702f4d2",
+      "bytes": 37151
+    },
+    {
+      "id": "onion",
+      "title": "洋葱",
+      "category": "蔬果",
+      "sourcePath": "assets/Onion/3D/onion_3d.png",
+      "gitBlob": "145bfbb618846d8e14a5b548447c4846e88a8ed3",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Onion/3D/onion_3d.png",
+      "sha256": "48716cb9e88ecfede29dfd55932bf4eb0a2b1b6688621bbf75305d7e042a0efd",
+      "bytes": 27502
+    },
+    {
+      "id": "garlic",
+      "title": "大蒜",
+      "category": "蔬果",
+      "sourcePath": "assets/Garlic/3D/garlic_3d.png",
+      "gitBlob": "21e3fd28dbdd5eb14d894294f712dfc7822f0ab4",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Garlic/3D/garlic_3d.png",
+      "sha256": "7abbfd71d59838c2f0ff385bb75b457c41a0ee2c456e8efaaab1215bae4df40f",
+      "bytes": 28277
+    },
+    {
+      "id": "salt",
+      "title": "食盐",
+      "category": "佐料",
+      "sourcePath": "assets/Salt/3D/salt_3d.png",
+      "gitBlob": "ced383de476b704c75e966ef9ef08697a8872d27",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Salt/3D/salt_3d.png",
+      "sha256": "075ecfcb32f8fb57d8c0b990c6951b7ebf06a496960044eed320cf5afb745652",
+      "bytes": 23027
+    },
+    {
+      "id": "butter",
+      "title": "黄油",
+      "category": "佐料",
+      "sourcePath": "assets/Butter/3D/butter_3d.png",
+      "gitBlob": "5d1493737b9d1fdfd68e5b432fa21ef704e8eab0",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Butter/3D/butter_3d.png",
+      "sha256": "9b4b3b80f35cbdd9214d10aff81792eaef9d2410b2fa4c7dd79ea87a8ea667ec",
+      "bytes": 26656
+    },
+    {
+      "id": "honey_pot",
+      "title": "蜂蜜",
+      "category": "佐料",
+      "sourcePath": "assets/Honey pot/3D/honey_pot_3d.png",
+      "gitBlob": "69853d7abad49561065e3014caa8db981acee6f4",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Honey%20pot/3D/honey_pot_3d.png",
+      "sha256": "cbaaf7c2e53ff4c1ad4100dce96438f947131cf458dcd4472ed3333d6d3269d5",
+      "bytes": 28125
+    },
+    {
+      "id": "jar",
+      "title": "调味罐",
+      "category": "佐料",
+      "sourcePath": "assets/Jar/3D/jar_3d.png",
+      "gitBlob": "d645cf8cb281c42e1208b1a2b73aa931c33491dc",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Jar/3D/jar_3d.png",
+      "sha256": "b21208b7402603f4520ce8e188b369ccafa1b8a183d268d6b70dfcb447d326be",
+      "bytes": 21543
+    },
+    {
+      "id": "cookie",
+      "title": "饼干",
+      "category": "零食",
+      "sourcePath": "assets/Cookie/3D/cookie_3d.png",
+      "gitBlob": "4a7f04061333e8f22c5a732f1dea9d692c0f59f8",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Cookie/3D/cookie_3d.png",
+      "sha256": "d3c5f5e2864d3178bf2033074c0cf679b067192fa9b5e1aa136267c7ac95d376",
+      "bytes": 38365
+    },
+    {
+      "id": "chocolate_bar",
+      "title": "巧克力",
+      "category": "零食",
+      "sourcePath": "assets/Chocolate bar/3D/chocolate_bar_3d.png",
+      "gitBlob": "d07450b0b754205e292952efcd08c9166270a211",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Chocolate%20bar/3D/chocolate_bar_3d.png",
+      "sha256": "cc1d1cf934113021204000db8e42574f243ebd668d5490c8242bb4263e79faee",
+      "bytes": 34131
+    },
+    {
+      "id": "popcorn",
+      "title": "爆米花",
+      "category": "零食",
+      "sourcePath": "assets/Popcorn/3D/popcorn_3d.png",
+      "gitBlob": "96c5a2c262894dd61d4e0ec3da6e35b4740a5210",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Popcorn/3D/popcorn_3d.png",
+      "sha256": "28ef7634d377bd78856b9ce45ba252e4455bf82988ce7e468a89042a4d805f6c",
+      "bytes": 35200
+    },
+    {
+      "id": "shortcake",
+      "title": "蛋糕",
+      "category": "零食",
+      "sourcePath": "assets/Shortcake/3D/shortcake_3d.png",
+      "gitBlob": "191ad7cd1596a93b0000910cee9a08db7d18624a",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Shortcake/3D/shortcake_3d.png",
+      "sha256": "0acebe0de7e4d5393c8825ee1a233ea8780e52bfec71ab52dd3e0135e8a9fb37",
+      "bytes": 34507
+    },
+    {
+      "id": "peanuts",
+      "title": "花生",
+      "category": "零食",
+      "sourcePath": "assets/Peanuts/3D/peanuts_3d.png",
+      "gitBlob": "4251ef03bfe916a07800b283d8338b9626f330d0",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Peanuts/3D/peanuts_3d.png",
+      "sha256": "47f9ac8137003ca0a198992012b5de7a3f7a9e2bbca073f1c7f35e80bed5ad70",
+      "bytes": 30445
+    },
+    {
+      "id": "moon_cake",
+      "title": "月饼",
+      "category": "零食",
+      "sourcePath": "assets/Moon cake/3D/moon_cake_3d.png",
+      "gitBlob": "428427941077532abc54d2767fc3686fc7b1def1",
+      "sourceUrl": "https://raw.githubusercontent.com/microsoft/fluentui-emoji/1ffb34c752ecf5d402f04cfb4b392c77f57c54bc/assets/Moon%20cake/3D/moon_cake_3d.png",
+      "sha256": "1eafefe8f26a82b054878529fb33bdc6749fc875adc348bcfa75cbd163a9b136",
+      "bytes": 38974
+    }
+  ]
+}

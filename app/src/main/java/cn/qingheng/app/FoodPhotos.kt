@@ -13,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.*
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 object FoodPhotos {
@@ -20,12 +21,26 @@ object FoodPhotos {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private fun file(context: Context, key: String): File? = key.takeIf { Regex("[a-f0-9-]{36}\\.jpg").matches(it) }?.let { File(context.filesDir, "food-images/$it") }
-    fun display(view: ImageView, key: String) {
-        view.scaleType = ImageView.ScaleType.CENTER_CROP
-        val image = file(view.context, key)
-        val bitmap = cache.get(key) ?: image?.takeIf { it.isFile }?.let {
-            BitmapFactory.decodeFile(it.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 })?.also { b -> cache.put(key, b) }
-        }
+    private fun bitmap(context: Context, key: String): Bitmap? {
+        cache.get(key)?.let { return it }
+        val bitmap = try {
+            val icon = FoodIcons.find(key)
+            if (icon != null) context.assets.open(icon.asset).use { BitmapFactory.decodeStream(it) }
+            else file(context, key)?.takeIf { it.isFile }?.let {
+                BitmapFactory.decodeFile(it.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 })
+            }
+        } catch (_: IOException) { null }
+        bitmap?.let { cache.put(key, it) }
+        return bitmap
+    }
+    fun display(view: ImageView, key: String, fallback: String = FoodIcons.categoryKey(FoodCategories.LEGACY)) {
+        val primary = bitmap(view.context, key)
+        val resolved = if (primary == null) fallback else key
+        val bitmap = primary ?: bitmap(view.context, fallback)
+        val icon = FoodIcons.find(resolved) != null
+        view.scaleType = if (icon) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
+        val padding = if (icon) (8 * view.resources.displayMetrics.density).toInt() else 0
+        view.setPadding(padding, padding, padding, padding)
         if (bitmap == null) view.setImageResource(R.drawable.food_placeholder) else view.setImageBitmap(bitmap)
     }
     fun import(context: Context, uri: Uri): String {
