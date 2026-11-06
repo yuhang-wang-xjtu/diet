@@ -35,14 +35,18 @@ object FoodPhotos {
     }
     fun display(view: ImageView, key: String, fallback: String = FoodIcons.categoryKey(FoodCategories.LEGACY)) {
         val primary = bitmap(view.context, key)
+        if (key == "design:rice" || primary == null && fallback == "design:rice") { DesignUi.bindSvg(view, "rice.svg"); return }
         val resolved = if (primary == null) fallback else key
         val bitmap = primary ?: bitmap(view.context, fallback)
         val icon = FoodIcons.find(resolved) != null
+        view.setTag(R.id.design_asset_name, null)
+        view.setLayerType(android.view.View.LAYER_TYPE_NONE, null)
         view.scaleType = if (icon) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
         val padding = if (icon) (8 * view.resources.displayMetrics.density).toInt() else 0
         view.setPadding(padding, padding, padding, padding)
         if (bitmap == null) view.setImageResource(R.drawable.food_placeholder) else view.setImageBitmap(bitmap)
     }
+    fun fallback(food: QuickFood) = if (food.id == -1L) "design:rice" else FoodIcons.defaultFor(food)
     fun import(context: Context, uri: Uri): String {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

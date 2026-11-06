@@ -1,0 +1,92 @@
+{
+  "source": "https://www.figma.com/design/8LbNEDIYbKR9SD1Hr2Urri/?node-id=2-2",
+  "frames": [
+    "2:2",
+    "2:3",
+    "2:4",
+    "2:5",
+    "2:6",
+    "2:7",
+    "2:8"
+  ],
+  "assets": [
+    {
+      "file": "brand_leaf.svg",
+      "width": 20.0,
+      "height": 20.0,
+      "role": "application asset"
+    },
+    {
+      "file": "intake_reference.svg",
+      "width": 90.0,
+      "height": 90.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_diary.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_diary_selected.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_settings.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_settings_selected.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_today.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_today_selected.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_trends.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "nav_trends_selected.svg",
+      "width": 24.0,
+      "height": 24.0,
+      "role": "application asset"
+    },
+    {
+      "file": "rice.svg",
+      "width": 105.0,
+      "height": 78.0,
+      "role": "application asset"
+    },
+    {
+      "file": "system_status.svg",
+      "width": 46.0,
+      "height": 16.0,
+      "role": "system chrome reference; Android supplies live system status"
+    },
+    {
+      "file": "weight_reference.svg",
+      "width": 320.0,
+      "height": 105.0,
+      "role": "data chart reference; application plots recorded weights"
+    }
+  ]
+}

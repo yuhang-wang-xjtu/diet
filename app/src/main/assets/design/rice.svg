@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="105" height="78" viewBox="0 0 105 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="&#231;&#177;&#179;&#233;&#165;&#173;&#230;&#143;&#146;&#231;&#148;&#187;">
+<path id="Vector" d="M52 75C72.9868 75 90 72.7614 90 70C90 67.2386 72.9868 65 52 65C31.0132 65 14 67.2386 14 70C14 72.7614 31.0132 75 52 75Z" fill="#CED9BD"/>
+<path id="Vector_2" d="M18 43C19 31 25 24 33 25C38 12 49 11 57 17C65 12 77 16 78 25C86 25 90 33 88 43H18Z" fill="#FFFDF5" stroke-width="2" stroke="#9BAA8B"/>
+<path id="Vector_3" d="M12 42H94C91 62 76 72 54 72C32 72 19 62 12 42Z" fill="#487F69"/>
+<g id="Vector_4">
+<path d="M15 47H92Z" fill="black"/>
+<path d="M15 47H92" stroke-width="3" stroke="#B4CFAD"/>
+</g>
+<g id="Vector_5">
+<path d="M32 33L36 30ZM48 25L52 27ZM62 34L66 31ZM74 29L77 31Z" fill="black"/>
+<path d="M32 33L36 30M48 25L52 27M62 34L66 31M74 29L77 31" stroke-width="2.5" stroke-linecap="round" stroke="#C7C8A7"/>
+</g>
+</g>
+</svg>

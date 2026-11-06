@@ -1,4 +1,6 @@
 <resources>
+    <item name="form_keyboard" type="id"/>
+    <item name="design_asset_name" type="id"/>
     <item name="numeric_initial" type="id"/>
     <item name="numeric_finished" type="id"/>
     <item name="numeric_dirty" type="id"/>

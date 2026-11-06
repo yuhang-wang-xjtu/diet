@@ -1,0 +1,41 @@
+package cn.qingheng.app
+
+import android.app.Activity
+import android.app.Dialog
+import android.view.WindowInsets
+import android.widget.*
+
+/** A scrollable secondary screen with a native back action and reachable save button. */
+class DesignSheet(activity: Activity, title: String, subtitle: String, saveLabel: String? = null) : Dialog(activity, R.style.AppTheme) {
+    var navigateBack: (() -> Unit)? = null
+    val content = DesignUi.column(activity).apply { setPadding(DesignUi.dp(activity, 20), 0, DesignUi.dp(activity, 20), DesignUi.dp(activity, 20)) }
+    val saveButton: Button? = saveLabel?.let { DesignUi.button(activity, it) {} }
+    init {
+        setOwnerActivity(activity)
+        val lifecycle = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event -> if (event == androidx.lifecycle.Lifecycle.Event.ON_DESTROY) dismiss() }
+        lifecycle?.addObserver(observer)
+        setOnDismissListener { lifecycle?.removeObserver(observer) }
+        val root = DesignUi.column(activity).apply { setBackgroundColor(DesignUi.background) }
+        val scroll = ScrollView(activity).apply { isFillViewport = true; addView(content) }
+        DesignUi.header(content, title, subtitle, back = { navigateBack?.invoke() ?: dismiss() })
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val footer = DesignUi.column(activity)
+        if (saveButton != null) {
+            footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, 65))
+            footer.addView(saveButton, LinearLayout.LayoutParams(-1, DesignUi.dp(activity, 52))); root.addView(footer)
+        }
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                if (saveButton != null) footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, if (insets.isVisible(WindowInsets.Type.ime())) 12 else 65))
+            } else { @Suppress("DEPRECATION") view.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom) }
+            insets
+        }
+        setContentView(root)
+        window?.setLayout(-1, -1)
+        window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        setOnShowListener { window?.setLayout(-1, -1); root.requestApplyInsets() }
+    }
+}

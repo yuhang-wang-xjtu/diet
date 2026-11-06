@@ -22,7 +22,7 @@ import kotlinx.coroutines.*
 class MainActivity : ComponentActivity() {
     private val ink = Color.rgb(31, 53, 44)
     private val green = Color.rgb(36, 122, 98)
-    private val muted = Color.rgb(116, 127, 117)
+    private val muted = DesignUi.muted
     private val bg = Color.rgb(246, 247, 242)
     private lateinit var store: Store
     private lateinit var foodPhotos: FoodPhotoPicker
@@ -30,6 +30,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var body: LinearLayout
     private var date = LocalDate.now()
     private var tab = 0
+    private var detailSheet: DesignSheet? = null
     private var exactWasAllowed = false
     private val stepsClient by lazy { StepsClient(this) }
     private val stepsScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -133,24 +134,52 @@ class MainActivity : ComponentActivity() {
     }
     override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); out.putString("date", date.toString()); out.putInt("tab", tab) }
     private fun shape(color: Int, radius: Int = 22) = GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
-    private fun text(value: String, size: Float = 15f, color: Int = ink, bold: Boolean = false) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(color); if (bold) setTypeface(typeface, Typeface.BOLD)
-        setLineSpacing(dp(3).toFloat(), 1f)
-    }
+    private fun text(value: String, size: Float = 15f, color: Int = ink, bold: Boolean = false) = DesignUi.text(this, value, size, color, bold)
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
     private fun space(parent: LinearLayout, h: Int = 16) { parent.addView(View(this), LinearLayout.LayoutParams(1, dp(h))) }
-    private fun button(label: String, primary: Boolean = false, action: () -> Unit) = Button(this).apply {
-        text = label; textSize = 14f; isAllCaps = false; minHeight = dp(48); minimumHeight = dp(48)
-        setTextColor(if (primary) Color.WHITE else green); background = shape(if (primary) green else Color.rgb(231, 238, 225), 14)
-        setPadding(dp(12), dp(4), dp(12), dp(4)); setOnClickListener { action() }
-    }
+    private fun button(label: String, primary: Boolean = false, action: () -> Unit) = DesignUi.button(this, label, primary, action)
     private fun card(parent: LinearLayout = body, color: Int = Color.WHITE): LinearLayout {
         val c = column().apply { background = shape(color); setPadding(dp(20), dp(20), dp(20), dp(20)) }
         parent.addView(c, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) }); return c
     }
-    private fun heading(value: String, sub: String? = null) { body.addView(text(value, 27f, bold = true)); sub?.let { body.addView(text(it, 13f, muted)) }; space(body, 22) }
+    private fun heading(value: String, sub: String? = null) {
+        DesignUi.header(body, value, sub.orEmpty(), dateAction = if (tab < 3) ({ pickDate() }) else null)
+    }
+    private fun dateLabel() = date.format(DateTimeFormatter.ofPattern("M 月 d 日，EEEE", Locale.SIMPLIFIED_CHINESE))
+    private fun suggestedMeal(): Meal {
+        if (date != LocalDate.now()) return store.entries(date.toString()).firstOrNull { it.kind == "food" && Meal.from(it.meal) != Meal.UNSPECIFIED }?.let { Meal.from(it.meal) } ?: Meal.LUNCH
+        return when (java.time.LocalTime.now().hour) { in 0..9 -> Meal.BREAKFAST; in 10..14 -> Meal.LUNCH; in 15..20 -> Meal.DINNER; else -> Meal.SNACK }
+    }
+    private fun macroValues(entries: List<Entry>, target: String = date.toString()): List<DesignUi.Macro> {
+        val reference = if (automatic) estimate(target) else null
+        val protein = goal("protein_goal") ?: if (automatic) reference?.protein else Nutrition.proteinTarget(store.weights(), target, null)
+        return listOf(DesignUi.Macro("蛋白质", Nutrition.total(entries) { it.protein }.takeIf { it.recorded > 0 }?.grams, protein),
+            DesignUi.Macro("脂肪", Nutrition.total(entries) { it.fat }.takeIf { it.recorded > 0 }?.grams, goal("fat_goal") ?: reference?.fat),
+            DesignUi.Macro("碳水化合物", Nutrition.total(entries) { it.carbs }.takeIf { it.recorded > 0 }?.grams, goal("carbs_goal") ?: reference?.carbs))
+    }
+    private fun showSettingsDetails(title: String, content: () -> Unit) {
+        val sheet = DesignSheet(this, title, "轻衡 / 设置")
+        val previous = body
+        try { body = sheet.content; content() } finally { body = previous }
+        detailSheet = sheet; sheet.show()
+    }
+    private fun showMeal(meal: Meal) {
+        val target = date.toString()
+        val sheet = DesignSheet(this, meal.label, "$target / 饮食记录")
+        val items = store.entries(target).filter { it.kind == "food" && Meal.from(it.meal) == meal }
+        items.forEach { entryRow(sheet.content, it) }
+        if (items.isEmpty()) sheet.content.addView(text(if (store.isSkipped(target, meal)) "这一餐没吃" else "尚无记录", 15f, muted))
+        space(sheet.content)
+        sheet.content.addView(button("＋ 记录${meal.label}", true) { sheet.dismiss(); quickRecord(meal) })
+        if (meal.remindable && items.isEmpty()) sheet.content.addView(button(if (store.isSkipped(target, meal)) "撤销没吃标记" else "这一餐没吃") {
+            if (store.isSkipped(target, meal)) { store.undoSkip(target, meal); sheet.dismiss(); render() }
+            else skipMeal(target, meal) { sheet.dismiss() }
+        })
+        detailSheet = sheet; sheet.show()
+    }
     private fun render() {
+        detailSheet?.dismiss(); detailSheet = null
         root = column().apply { setBackgroundColor(bg) }
         root.setOnApplyWindowInsetsListener { v, insets ->
             if (android.os.Build.VERSION.SDK_INT >= 30) {
@@ -159,21 +188,12 @@ class MainActivity : ComponentActivity() {
             } else { @Suppress("DEPRECATION") v.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom) }
             insets
         }
-        val brand = row().apply { setPadding(dp(24), dp(16), dp(24), dp(8)) }
-        brand.addView(text("◒  轻衡", 22f, green, true), LinearLayout.LayoutParams(0, -2, 1f))
-        brand.addView(text("DAILY BALANCE", 10f, muted, true)); root.addView(brand)
-        val scroll = ScrollView(this).apply { isFillViewport = true }
-        body = column().apply { setPadding(dp(24), dp(16), dp(24), dp(24)) }
+        val scroll = ScrollView(this).apply { isFillViewport = true; clipToPadding = false }
+        body = column().apply { setPadding(dp(20), 0, dp(20), dp(24)) }
         scroll.addView(body); root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         when (tab) { 0 -> overview(); 1 -> diary(); 2 -> trends(); else -> settings() }
-        val nav = row().apply { setPadding(dp(12), dp(10), dp(12), dp(10)); setBackgroundColor(Color.WHITE) }
-        listOf("◉\n今日", "≡\n记录", "↗\n趋势", "⚙\n设置").forEachIndexed { i, s ->
-            nav.addView(TextView(this).apply { text = s; textSize = 13f; gravity = Gravity.CENTER; setTextColor(if (i == tab) green else muted)
-                setPadding(0, dp(4), 0, dp(4)); if (i == tab) background = shape(Color.rgb(235, 242, 230), 12)
-                contentDescription = listOf("今日概览", "每日记录", "体重趋势", "设置")[i]; setOnClickListener { tab = i; render() }
-            }, LinearLayout.LayoutParams(0, dp(56), 1f))
-        }
-        root.addView(nav); setContentView(root); root.requestApplyInsets()
+        root.addView(DesignUi.navigation(this, tab) { tab = it; render() }, LinearLayout.LayoutParams(-1, dp(74)))
+        setContentView(root); root.requestApplyInsets()
     }
     private fun dateRow() {
         val r = row()
@@ -184,95 +204,72 @@ class MainActivity : ComponentActivity() {
     }
     private fun pickDate() { DatePickerDialog(this, { _, y, m, d -> date = LocalDate.of(y, m + 1, d); render() }, date.year, date.monthValue - 1, date.dayOfMonth).show() }
     private fun overview() {
-        heading(if (date == LocalDate.now()) "每一天，都有进步。" else "回看这一天。", "记录饮食与运动，看见自己的变化")
-        dateRow()
+        heading("今日概览", dateLabel())
         val entries = store.entries(date.toString())
         val walking = walkingEstimate(date.toString(), entries)
         val bodyEstimate = estimate()
         val daily = if (automatic) bodyEstimate?.expenditure else baseline
-        val t = Energy.totals(entries, daily, walking.kcal ?: 0.0, addExercise = !automatic)
+        val totals = Energy.totals(entries, daily, walking.kcal ?: 0.0, addExercise = !automatic)
+        DesignUi.energyCard(body, totals, daily, automatic) { tab = 3; render() }
+        DesignUi.section(body, "营养摄入"); space(body, 11)
+        DesignUi.macros(body, macroValues(entries))
+        DesignUi.section(body, "今日记录", 25); space(body, 13)
+        val meal = suggestedMeal()
+        val items = entries.filter { it.kind == "food" && Meal.from(it.meal) == meal }
+        DesignUi.item(body, meal.label, if (items.isEmpty()) "查看餐次   ›" else "${fmt(items.sumOf { it.kcal })} kcal   ›", { showMeal(meal) })
+        space(body, 17); body.addView(button("＋  记录${meal.label}", true) { quickRecord(meal) }, LinearLayout.LayoutParams(-1, dp(52)))
+        space(body, 24)
+        energyHistoryCard()
+        val actions = row()
+        actions.addView(button("手动输入食物") { entryDialog("food", selectedMeal = meal) }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(10) })
+        actions.addView(button("＋ 运动") { entryDialog("exercise") }, LinearLayout.LayoutParams(0, -2, 1f)); body.addView(actions); space(body)
+        body.addView(button("＋ 零食") { entryDialog("food", selectedMeal = Meal.SNACK) }); space(body)
+        body.addView(button("回顾食物") { foodHistory() }); space(body)
         if (store.profiles().isEmpty()) {
             val setup = card(); setup.addView(text("先认识一下你", 19f, bold = true))
-            setup.addView(text("填写年龄、性别、身高、体重与活动水平，即可自动计算消耗和营养参考目标。", 13f, muted))
-            setup.addView(button("填写个人资料", true) { profileDialog() })
+            setup.addView(text("填写个人资料，自动估算消耗和营养目标。", 13f, muted)); setup.addView(button("填写个人资料", true) { profileDialog() })
         }
-        val hero = card(color = green)
-        hero.addView(text("当日热量缺口 · 估算", 14f, Color.rgb(217, 236, 216)))
-        space(hero, 8)
-        hero.addView(text(t.deficit?.let { if (it >= 0) fmt(it) else "−${fmt(-it)}" } ?: "待设置", 48f, Color.WHITE, true))
-        hero.addView(text(if (t.deficit == null) "填写有效个人资料或手动消耗 · 点击设置" else "kcal  /  ${if (t.deficit!! >= 0) "消耗大于摄入" else "摄入大于消耗"}", 13f, Color.rgb(217, 236, 216)))
-        hero.setOnClickListener { tab = 3; render() }
-        space(hero)
-        hero.addView(text(if (automatic) "全天总消耗（已含活动） − 饮食摄入" else "日常消耗  +  额外运动  −  饮食摄入", 12f, Color.WHITE))
-        energyHistoryCard()
         val metrics = card()
-        metric(metrics, "饮食摄入", "${fmt(t.intake)} kcal", "本日 ${entries.count { it.kind == "food" }} 条记录")
-        space(metrics); metric(metrics, "运动记录", "${fmt(t.exercise)} kcal", if (automatic) "活动已包含在全天估算中，此处展示记录，不再叠加" else "含手动运动与计入的步行净消耗")
-        space(metrics); metric(metrics, "${if (automatic) "全天总消耗" else "日常消耗"}", daily?.let { "${fmt(it)} kcal" } ?: "尚未设置", if (automatic) "静息代谢 × 活动系数 · 维持体重参考" else "包含日常活动，不含另记的额外运动")
-        if (automatic) {
-            space(metrics); metric(metrics, "BMR参考", bodyEstimate?.let { "${fmt(it.resting)} kcal" } ?: "资料或体重不足", "Mifflin–St Jeor 静息代谢估算，非实测BMR")
-        }
-        val actions = row()
-        actions.addView(button("＋ 饮食", true) { entryDialog("food") }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(10) })
-        actions.addView(button("＋ 运动") { entryDialog("exercise") }, LinearLayout.LayoutParams(0, dp(50), 1f))
-        body.addView(actions); space(body)
+        metric(metrics, "运动记录", "${fmt(totals.exercise)} kcal", if (automatic) "活动已包含在全天估算中，不再叠加" else "含手动运动与计入的步行净消耗")
+        if (automatic) { space(metrics); metric(metrics, "BMR参考", bodyEstimate?.let { "${fmt(it.resting)} kcal" } ?: "资料或体重不足", "静息代谢估算，非实测BMR") }
         stepsCard(entries)
-        val extras = row()
-        extras.addView(button("＋ 零食") { entryDialog("food", selectedMeal = Meal.SNACK) }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(10) })
-        extras.addView(button("回顾食物") { foodHistory() }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        body.addView(extras); space(body)
-        body.addView(button("快捷记餐 · 食物库 / 原材料配方", true) { quickRecord() }); space(body)
-        val meals = card(); meals.addView(text("三餐记录", 19f, bold = true))
-        Meal.regular.forEach { meal ->
-            space(meals, 10)
-            meals.addView(button("${meal.label} · ${MealTiming.status(entries.any { it.kind == "food" && it.meal == meal.key }, store.isSkipped(date.toString(), meal))}") {
-                tab = 1; render(); entryDialog("food", selectedMeal = meal)
-            })
-        }
-        meals.addView(text(if (!MealReminders.enabled(this)) "三餐提醒已关闭，可在设置中开启。" else if (!MealReminders.notificationsAllowed(this)) "通知未允许，请在设置中开启以接收记餐提醒。" else "提醒 ${Meal.regular.joinToString(" / ") { MealReminders.timeText(this, it) }} · 零食不提醒", 11f, muted))
+        val weight = store.weights().find { it.date == date.toString() }
+        val wc = card(); metric(wc, "当日体重", weight?.let { "${kg(it.kg)} kg" } ?: "还没记录", "固定时段记录，更容易比较")
+        space(wc, 12); wc.addView(button(if (weight == null) "＋ 记录体重" else "修改体重") { weightDialog(weight) })
         nutritionCard(entries)
-        val w = store.weights().find { it.date == date.toString() }
-        val wc = card()
-        metric(wc, "当日体重", w?.let { "${kg(it.kg)} kg" } ?: "还没记录", "固定时段记录，更容易比较")
-        space(wc, 12); wc.addView(button(if (w == null) "＋ 记录体重" else "修改体重") { weightDialog(w) })
-        body.addView(text("饮食与运动为空时按 0 计算；完整记录后，缺口才有参考意义。", 12f, muted))
+        body.addView(text("完整记录后，热量缺口才有参考意义。", 12f, muted))
     }
     private fun metric(parent: LinearLayout, label: String, value: String, hint: String) {
         val r = row(); r.addView(text(label, 14f, muted), LinearLayout.LayoutParams(0, -2, 1f)); r.addView(text(value, 20f, ink, true)); parent.addView(r)
         parent.addView(text(hint, 11f, muted))
     }
     private fun diary() {
-        heading("每日记录", "一点一滴，积累成改变")
-        dateRow()
-        body.addView(button("快捷记餐 · 食物库 / 原材料配方", true) { quickRecord() }); space(body)
-        body.addView(button("回顾之前的食物") { foodHistory() }); space(body)
+        heading("每日记录", dateLabel())
         val entries = store.entries(date.toString())
-        stepsCard(entries)
-        Meal.entries.forEach { meal ->
+        val intake = DesignUi.surface(this, DesignUi.forest, 18, 17)
+        intake.addView(DesignUi.text(this, "饮食摄入", 14f, Color.rgb(226, 239, 221), line = 19)); space(intake, 10)
+        intake.addView(DesignUi.text(this, "${fmt(entries.filter { it.kind == "food" }.sumOf { it.kcal })} kcal", 32f, Color.WHITE, true, 44))
+        intake.minimumHeight = dp(105); body.addView(intake)
+        DesignUi.section(body, "饮食明细"); space(body, 14)
+        val meals = column().apply { minimumHeight = dp(280) }
+        val suggested = suggestedMeal()
+        val expanded = entries.firstOrNull { it.kind == "food" && Meal.from(it.meal) == suggested }?.let { suggested }
+            ?: entries.firstOrNull { it.kind == "food" }?.let { Meal.from(it.meal) }
+        listOf(Meal.BREAKFAST, Meal.LUNCH, Meal.DINNER, Meal.SNACK, Meal.UNSPECIFIED).forEach { meal ->
             val items = entries.filter { it.kind == "food" && Meal.from(it.meal) == meal }
             if (meal == Meal.UNSPECIFIED && items.isEmpty()) return@forEach
-            val c = card(); val r = row()
-            r.addView(text(meal.label, 19f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
-            r.addView(button("＋ 添加") { entryDialog("food", selectedMeal = meal) }); c.addView(r)
-            if (meal.remindable) {
-                val skipped = store.isSkipped(date.toString(), meal)
-                c.addView(text(MealTiming.status(items.isNotEmpty(), skipped), 13f, green))
-                if (items.isEmpty()) {
-                    space(c, 8)
-                    c.addView(button(if (skipped) "撤销没吃标记" else "这一餐没吃") {
-                        if (skipped) { store.undoSkip(date.toString(), meal); render() } else skipMeal(date.toString(), meal)
-                    })
-                }
-            } else if (meal == Meal.SNACK) c.addView(text("随时记录，不发送提醒；计入当日热量与营养。", 12f, muted))
-            else c.addView(text("旧版食物保留在这里，编辑可指定餐次。", 12f, muted))
-            if (items.isNotEmpty()) c.addView(text("合计 ${fmt(items.sumOf { it.kcal })} kcal", 13f, green))
-            items.forEach { entryRow(c, it) }
-            if (items.isEmpty() && !meal.remindable) { space(c, 8); c.addView(text("暂无记录", 13f, muted)) }
+            if (meals.childCount > 0) space(meals, 8)
+            val label = if (items.isNotEmpty()) "${fmt(items.sumOf { it.kcal })} kcal" else if (store.isSkipped(date.toString(), meal)) "这一餐没吃" else "尚无记录"
+            DesignUi.item(meals, meal.label, label, { showMeal(meal) }, if (meal == expanded && items.isNotEmpty()) items.joinToString("、") { it.name } else null)
         }
+        body.addView(meals); space(body, 46)
+        body.addView(button("＋  记录${suggested.label}", true) { quickRecord(suggested) }, LinearLayout.LayoutParams(-1, dp(52))); space(body, 24)
+        body.addView(button("手动输入食物") { entryDialog("food", selectedMeal = suggested) }); space(body, 10)
+        body.addView(button("回顾之前的食物") { foodHistory() }); space(body)
         val exercise = card(); val line = row()
         line.addView(text("运动", 19f, bold = true), LinearLayout.LayoutParams(0, -2, 1f)); line.addView(button("＋ 添加") { entryDialog("exercise") }); exercise.addView(line)
         entries.filter { it.kind == "exercise" }.forEach { entryRow(exercise, it) }
-        nutritionCard(entries)
+        stepsCard(entries); nutritionCard(entries)
     }
     private fun entryRow(parent: LinearLayout, e: Entry) {
         space(parent, 12)
@@ -335,28 +332,35 @@ class MainActivity : ComponentActivity() {
         c.addView(button("设置营养目标") { tab = 3; render() })
     }
     private fun trends() {
-        heading("体重与热量趋势", "关注长期变化，也接纳每天的起伏")
-        dateRow()
+        val end = minOf(date, LocalDate.now()); val start = end.minusDays(29)
+        heading("体重趋势", "${start.monthValue} 月 ${start.dayOfMonth} 日 — ${end.monthValue} 月 ${end.dayOfMonth} 日")
+        val all = store.weights(); val recent = all.filter { it.date >= start.toString() && it.date <= end.toString() }
+        space(body, 5)
+        val card = DesignUi.surface(this, radius = 20, padding = 15)
+        card.addView(DesignUi.text(this, "最近体重", 14f, muted, line = 19)); space(card, 6)
+        val value = row().apply { gravity = Gravity.BOTTOM }
+        value.addView(DesignUi.text(this, recent.lastOrNull()?.let { kg(it.kg) } ?: "尚无记录", 38f, bold = true, line = 52))
+        if (recent.isNotEmpty()) value.addView(DesignUi.text(this, "kg", 15f, muted, line = 21), LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(7); bottomMargin = dp(6) })
+        card.addView(value); space(card, 3)
+        if (recent.isEmpty()) card.addView(DesignUi.text(this, "记录体重后显示变化曲线", 14f, muted).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-1, dp(105)))
+        else card.addView(WeightChart(this, recent, start, end), LinearLayout.LayoutParams(-1, dp(105)))
+        space(card, 12)
+        val dates = row(); dates.addView(text("${start.monthValue.toString().padStart(2, '0')}/${start.dayOfMonth.toString().padStart(2, '0')}", 12f, muted), LinearLayout.LayoutParams(0, -2, 1f))
+        dates.addView(text("${end.monthValue.toString().padStart(2, '0')}/${end.dayOfMonth.toString().padStart(2, '0')}", 12f, muted)); card.addView(dates)
+        card.minimumHeight = dp(247); body.addView(card)
+        DesignUi.section(body, "最近称重", 29); space(body, 14)
+        all.filter { it.date <= end.toString() }.takeLast(3).asReversed().forEachIndexed { index, w ->
+            if (index > 0) space(body, 9)
+            val d = LocalDate.parse(w.date)
+            DesignUi.item(body, "${d.monthValue} 月 ${d.dayOfMonth} 日", "${kg(w.kg)} kg", { weightDialog(w) })
+        }
+        space(body, 59); body.addView(button("＋ 记录所选日期体重", true) { weightDialog(all.find { it.date == date.toString() }) }); space(body)
         energyHistoryCard()
-        val end = minOf(date, LocalDate.now())
-        val all = store.weights()
-        val recent = all.filter { LocalDate.parse(it.date) >= end.minusDays(29) && LocalDate.parse(it.date) <= end }
-        val c = card()
-        c.addView(text("最近 30 天", 14f, muted))
-        if (recent.isEmpty()) { space(c); c.addView(text("从第一次记录开始", 24f, bold = true)); c.addView(text("记录体重后，这里会出现变化曲线。", 13f, muted)) }
-        else {
-            c.addView(text("${kg(recent.last().kg)} kg", 36f, bold = true))
-            c.addView(text(if (recent.size < 2) "再记录一次，即可比较变化" else "较本时段首次 ${String.format(Locale.US, "%+.1f", recent.last().kg - recent.first().kg)} kg", 13f, green))
-            c.addView(WeightChart(this, recent), LinearLayout.LayoutParams(-1, dp(195)))
-        }
-        space(c); c.addView(button("＋ 记录所选日期体重", true) { weightDialog(all.find { it.date == date.toString() }) })
-        body.addView(text("所选日期：${date} · 点击更改", 12f, muted).apply { setOnClickListener { pickDate() } }); space(body)
-        val history = card(); history.addView(text("全部体重记录", 19f, bold = true))
-        if (all.isEmpty()) { space(history); history.addView(text("暂无记录", 14f, muted)) }
-        all.asReversed().forEach { w ->
-            val r = row().apply { setPadding(0, dp(14), 0, dp(14)); setOnClickListener { weightDialog(w) } }
-            r.addView(text(w.date, 14f, muted), LinearLayout.LayoutParams(0, -2, 1f)); r.addView(text("${kg(w.kg)} kg  ›", 17f, bold = true)); history.addView(r)
-        }
+        body.addView(button("全部称重记录") {
+            val sheet = DesignSheet(this, "全部称重记录", "点击记录可修改或删除")
+            all.asReversed().forEach { w -> DesignUi.item(sheet.content, w.date, "${kg(w.kg)} kg", { weightDialog(w) }); space(sheet.content, 9) }
+            detailSheet = sheet; sheet.show()
+        })
     }
     private fun energyHistoryCard() {
         val end = minOf(date, LocalDate.now())
@@ -455,7 +459,36 @@ class MainActivity : ComponentActivity() {
         } }; d.show(); FormKeyboard(c) { d.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
     private fun settings() {
-        heading("按自己的节奏", "你的数据，保存在这台设备上")
+        val today = LocalDate.now().toString()
+        val estimate = estimate(today)
+        heading("设置", "个人资料与每日目标")
+        DesignUi.section(body, "消耗估算", 6); space(body, 13)
+        DesignUi.item(body, "计算模式", if (automatic) "自动 · TDEE" else "手动 · 消耗基准", {
+            AlertDialog.Builder(this).setTitle("计算模式").setItems(arrayOf("自动估算 · TDEE", "手动消耗基准")) { _, index ->
+                if (index == 0 && estimate == null) profileDialog()
+                else if (index == 1 && baseline == null) showSettingsDetails("设置手动消耗") { settingsContents() }
+                else { prefs.edit().putBoolean("automatic_body", index == 0).apply(); render() }
+            }.setNegativeButton("取消", null).show()
+        })
+        space(body, 7)
+        DesignUi.item(body, "日常消耗", (if (automatic) estimate?.expenditure else baseline)?.let { "${FoodValues.f(it)} kcal / 天" } ?: "待设置", {
+            if (automatic) showSettingsDetails("个人资料与自动计算") { profileSettings() }
+            else showSettingsDetails("手动消耗与设置") { settingsContents() }
+        })
+        DesignUi.section(body, "每日营养目标", 34); space(body, 15)
+        macroValues(emptyList(), today).forEachIndexed { index, macro ->
+            if (index > 0) space(body, 8)
+            DesignUi.item(body, macro.label, macro.target?.let { "${FoodValues.f(it)} g" } ?: "未设置", { showSettingsDetails("每日营养目标") { nutritionSettings() } })
+        }
+        space(body, 32)
+        val privacy = DesignUi.surface(this, DesignUi.soft, 15, 15)
+        privacy.setPadding(dp(15), dp(12), dp(15), dp(17))
+        privacy.addView(DesignUi.text(this, "数据保存在本机", 15f, bold = true, line = 21)); space(privacy, 8)
+        privacy.addView(DesignUi.text(this, "饮食、运动和体重记录保存在本地数据库。", 13f, muted, line = 18)); privacy.minimumHeight = dp(76); body.addView(privacy)
+        space(body, 39)
+        body.addView(button("更多设置 · 提醒 / 步数 / 菜品 / 更新") { showSettingsDetails("更多设置") { settingsContents() } })
+    }
+    private fun settingsContents() {
         val foodManagement = card(); foodManagement.addView(button("管理我的菜品 · 分类 / 图片 / 配方") { startActivity(Intent(this, FoodManagerActivity::class.java)) })
         profileSettings()
         walkingSettings()
@@ -819,43 +852,45 @@ class MainActivity : ComponentActivity() {
         setPadding(dp(8), dp(12), dp(8), dp(12)); minHeight = dp(52)
     }
     private fun dialogBody() = column().apply { setPadding(dp(24), dp(8), dp(24), dp(8)) }
-    private fun quickRecord() {
-        FoodLibraryUi(this, store, foodPhotos) { food -> entryDialog("food", food = food) }.show()
+    private fun quickRecord(meal: Meal? = null) {
+        FoodLibraryUi(this, store, foodPhotos) { food -> entryDialog("food", selectedMeal = meal, food = food) }.show("${date.monthValue} 月 ${date.dayOfMonth} 日 / ${(meal ?: suggestedMeal()).label}")
     }
     private fun entryDialog(kind: String, existing: Entry? = null, selectedMeal: Meal? = null, food: QuickFood? = null) {
         if (kind == "exercise") { ExerciseUi(this, store, date.toString()) { render() }.entry(existing); return }
         val targetDate = existing?.date ?: date.toString()
-        val c = dialogBody(); c.isFocusableInTouchMode = true
-        c.addView(text("$targetDate · 饮食摄入", 13f, muted))
+        val selected = selectedMeal ?: existing?.let { Meal.from(it.meal) } ?: suggestedMeal()
+        val dialog = DesignSheet(this, if (existing != null) "编辑食物" else "记录${if (selected == Meal.UNSPECIFIED) "食物" else selected.label}", "$targetDate / 饮食摄入", "保存到${selected.label}")
+        val c = dialog.content; c.isFocusableInTouchMode = true
         val mealPicker = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, Meal.entries.map { it.label })
-            setSelection((selectedMeal ?: existing?.let { Meal.from(it.meal) } ?: Meal.UNSPECIFIED).ordinal); minimumHeight = dp(48)
+            setSelection(selected.ordinal); minimumHeight = dp(48)
         }
-        c.addView(text("餐次（零食不提醒）", 12f, muted)); c.addView(mealPicker)
+        mealPicker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { dialog.saveButton?.text = "保存到${Meal.entries[position].label}" }
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
         lateinit var fields: FoodNutritionInput
         var chosenAnotherFood = food != null
         var foodDetails = food?.details() ?: existing?.details ?: ""
         val details = text(foodDetails, 11f, muted)
-        c.addView(button("从分类快捷食物 / 配方填入") {
+        val chooseFood = button("从分类快捷食物 / 配方填入") {
             FoodLibraryUi(this, store, foodPhotos) { selected ->
                 chosenAnotherFood = true; fields.load(selected)
                 foodDetails = selected?.details() ?: ""; details.text = foodDetails
             }.show()
-        })
+        }
         val initial = existing?.let { FoodInputDraft.fromEntry(it) } ?: food?.let { FoodInputDraft.fromFood(it) }
             ?: FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null)
-        fields = FoodNutritionInput(this, c, existing?.name ?: food?.name ?: "", initial)
+        fields = FoodNutritionInput(this, c, existing?.name ?: food?.name ?: "", initial, food)
         if (existing != null && existing.portion.isBlank()) c.addView(text("旧记录没有保存克数，暂按参考100g / 实际100g载入以保留原摄入总量；未调整克数时不会补写重量信息。", 11f, muted))
-        c.addView(details)
-        val builder = AlertDialog.Builder(this).setTitle(if (existing == null) "添加食物" else "编辑食物")
-            .setView(ScrollView(this).apply { addView(c) }).setNegativeButton("取消", null).setPositiveButton("保存", null)
-        if (existing != null) builder.setNeutralButton("删除") { _, _ -> confirmDelete { store.delete(existing); render() } }
-        val dialog = builder.create()
+        c.addView(details); space(c, 12); c.addView(chooseFood)
+        c.addView(text("餐次（零食不提醒）", 12f, muted)); c.addView(mealPicker)
+        if (existing != null) c.addView(button("删除这条食物") { confirmDelete { store.delete(existing); dialog.dismiss(); render() } })
         if (existing == null) c.addView(button("这一餐没吃") {
             val meal = Meal.entries[mealPicker.selectedItemPosition]
             if (meal.remindable) skipMeal(targetDate, meal) { dialog.dismiss() } else Toast.makeText(this, "仅三餐可标记没吃", Toast.LENGTH_SHORT).show()
         })
-        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        dialog.saveButton!!.setOnClickListener {
             val portion = fields.portion()
             when {
                 fields.name.text.isBlank() || fields.name.text.length > 80 -> fields.name.error = "请输入1–80字的名称"
@@ -870,7 +905,7 @@ class MainActivity : ComponentActivity() {
                     MealReminders.resolve(this, targetDate, Meal.entries[mealPicker.selectedItemPosition]); dialog.dismiss(); render()
                 }
             }
-        } }; dialog.show(); FormKeyboard(c) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
+        }; dialog.show(); FormKeyboard(c) { dialog.saveButton.performClick() }
     }
 
     private fun weightDialog(existing: Weight? = null) {

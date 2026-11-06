@@ -22,6 +22,7 @@ class FormKeyboard(private val root: View, private val submit: () -> Unit) {
         val inputs = fields()
         inputs.forEach { if (it.id == View.NO_ID) it.id = View.generateViewId() }
         inputs.forEachIndexed { index, field ->
+            field.setTag(R.id.form_keyboard, this)
             val next = inputs.getOrNull(index + 1)
             val action = if (next == null) EditorInfo.IME_ACTION_DONE else EditorInfo.IME_ACTION_NEXT
             val options = action or EditorInfo.IME_FLAG_NO_EXTRACT_UI

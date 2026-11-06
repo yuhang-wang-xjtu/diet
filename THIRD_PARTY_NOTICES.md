@@ -7,3 +7,7 @@
 使用上游提交 `1ffb34c752ecf5d402f04cfb4b392c77f57c54bc` 中的3D透明PNG，图片原样收录，未修改。每个图标的原始下载地址、文件大小和SHA-256见[素材清单](app/src/main/assets/food-icons/catalog.json)。
 
 [完整版权与许可文本](app/src/main/assets/licenses/fluent-emoji-MIT.txt) 随源码和APK一起分发，也可在应用的“设置 → 图标素材与许可”或图标选择器的“素材与许可”中查看。
+
+## AndroidSVG
+
+原型中的SVG插画和导航图标使用 [AndroidSVG 1.4](https://github.com/BigBadaboom/androidsvg) 渲染，按Apache License 2.0使用。[完整许可文本](app/src/main/assets/licenses/androidsvg-Apache-2.0.txt) 随应用一起分发。

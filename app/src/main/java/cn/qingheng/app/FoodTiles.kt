@@ -43,6 +43,6 @@ class FoodTiles(private val context: Context, private val items: List<FoodTile>)
             numColumns = columns; val gap = (12 * resources.displayMetrics.density).toInt(); horizontalSpacing = gap; verticalSpacing = gap
             stretchMode = GridView.STRETCH_COLUMN_WIDTH; clipToPadding = false
         }
-        fun food(food: QuickFood) = FoodTile(food.name, "${FoodValues.f(food.values.kcal)} kcal / ${food.basisGrams?.let { FoodValues.f(it) + "g" } ?: "整锅"}", food.image, FoodIcons.defaultFor(food))
+        fun food(food: QuickFood) = FoodTile(food.name, "${FoodValues.f(food.values.kcal)} kcal / ${food.basisGrams?.let { FoodValues.f(it) + "g" } ?: "整锅"}", food.image, FoodPhotos.fallback(food))
     }
 }
