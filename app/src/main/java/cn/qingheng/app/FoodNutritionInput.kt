@@ -5,12 +5,15 @@ import android.graphics.Color
 import android.text.InputType
 import android.widget.*
 
-/** The same reference/actual gram form is used for meals, shortcuts and recipe ingredients. */
+/** Shared nutrition form. Unweighed legacy foods retain their whole-portion reference. */
 class FoodNutritionInput(private val activity: Activity, private val parent: LinearLayout, name: String = "",
     initial: FoodInputDraft = FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null), food: QuickFood? = null) {
     private fun dp(n: Int) = DesignUi.dp(activity, n)
     private fun raw(value: Double?) = value?.toString() ?: ""
     private var original = initial
+    private var unit = initial.unit
+    val usesPortions get() = unit == FoodUnit.PORTIONS
+    private val defaultAmount get() = if (usesPortions) 1.0 else FoodInputDraft.DEFAULT_GRAMS
     private var selectedFood = food
     private val header = DesignUi.surface(activity, DesignUi.food, 18, 18).also { parent.addView(it) }
     private val top = DesignUi.row(activity).also { header.addView(it) }
@@ -48,14 +51,21 @@ class FoodNutritionInput(private val activity: Activity, private val parent: Lin
     private val presets = DesignUi.row(activity).also { DesignUi.space(parent, 18); parent.addView(it) }
     val actual = EditText(activity).apply {
         setSingleLine(true); hint = "100 克"; textSize = 17f; setTypeface(typeface, android.graphics.Typeface.BOLD)
-        includeFontPadding = false; gravity = android.view.Gravity.CENTER; minHeight = dp(48); setPadding(dp(12), dp(8), dp(12), dp(8))
+        includeFontPadding = false; gravity = android.view.Gravity.CENTER_VERTICAL; minHeight = dp(48); setPadding(dp(14), dp(8), dp(14), dp(8))
         contentDescription = "实际食用克数，可输入计算式，留空按100克"
-        NumberInput.configure(this, raw(initial.actual ?: FoodInputDraft.DEFAULT_GRAMS)); presets.addView(this, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(14) })
+        NumberInput.configure(this, raw(initial.actual ?: defaultAmount)); presets.addView(this, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(14) })
+    }
+    private val unitToggle = DesignUi.button(activity, "", false) {
+        unit = if (usesPortions) FoodUnit.GRAMS else FoodUnit.PORTIONS
+        NumberInput.setValue(actual, defaultAmount)
+        if (!usesPortions) referenceFields.visibility = android.view.View.VISIBLE
+        update(); (actual.getTag(R.id.form_keyboard) as? FormKeyboard)?.refresh()
     }
     private val preview = DesignUi.column(activity).also { parent.addView(it) }
     private val help = DesignUi.text(activity, "", 12f, DesignUi.muted).also { DesignUi.space(parent, 12); parent.addView(it) }
     init {
-        referenceFields.visibility = if (initial.reference == null || initial.basis == null) android.view.View.VISIBLE else android.view.View.GONE
+        parent.addView(unitToggle)
+        referenceFields.visibility = if (initial.reference == null) android.view.View.VISIBLE else android.view.View.GONE
         fun toggle() {
             val expanded = referenceFields.visibility == android.view.View.VISIBLE
             if (expanded && referenceFields.hasFocus()) actual.requestFocus()
@@ -63,7 +73,7 @@ class FoodNutritionInput(private val activity: Activity, private val parent: Lin
             (actual.getTag(R.id.form_keyboard) as? FormKeyboard)?.refresh()
         }
         editReference.setOnClickListener { toggle() }; referenceLabel.setOnClickListener { toggle() }
-        presets.addView(DesignUi.button(activity, "150 克", false) { NumberInput.setValue(actual, 150.0); update() }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        presets.addView(DesignUi.button(activity, "150 克", false) { NumberInput.setValue(actual, if (usesPortions) 0.5 else 150.0); update() }, LinearLayout.LayoutParams(0, dp(48), 1f))
         listOf(basis, kcal, protein, fat, carbs, sodium, actual).forEach { NumberInput.onFinished(it) { update() } }
         update()
     }
@@ -74,13 +84,12 @@ class FoodNutritionInput(private val activity: Activity, private val parent: Lin
     }
     fun load(food: QuickFood?, actualGrams: Double? = null) {
         name.setText(food?.name ?: ""); selectedFood = food
-        val draft = food?.let { FoodInputDraft.fromFood(it, actualGrams) } ?: FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null); original = draft
-        NumberInput.setValue(basis, draft.basis?.takeUnless { it == FoodInputDraft.DEFAULT_GRAMS }); NumberInput.setValue(actual, draft.actual ?: FoodInputDraft.DEFAULT_GRAMS)
-        basis.hint = if (draft.basis == null) "请填写这份配方的整锅成品克重" else "留空默认为100g"
+        val draft = food?.let { FoodInputDraft.fromFood(it, actualGrams) } ?: FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null); original = draft; unit = draft.unit
+        NumberInput.setValue(basis, draft.basis?.takeUnless { it == FoodInputDraft.DEFAULT_GRAMS }); NumberInput.setValue(actual, draft.actual ?: defaultAmount)
         val n = draft.reference
         NumberInput.setValue(kcal, n?.kcal); NumberInput.setValue(protein, n?.protein); NumberInput.setValue(fat, n?.fat); NumberInput.setValue(carbs, n?.carbs); NumberInput.setValue(sodium, n?.sodium)
-        referenceFields.visibility = if (draft.reference == null || draft.basis == null) android.view.View.VISIBLE else android.view.View.GONE
-        (actual.getTag(R.id.form_keyboard) as? FormKeyboard)?.refresh(); update()
+        referenceFields.visibility = if (draft.reference == null) android.view.View.VISIBLE else android.view.View.GONE
+        update(); (actual.getTag(R.id.form_keyboard) as? FormKeyboard)?.refresh()
     }
     fun reference(validate: Boolean = true, requireMacros: Boolean = false): EntryNutrients? {
         fun parse(field: EditText, required: Boolean): Double? {
@@ -94,34 +103,48 @@ class FoodNutritionInput(private val activity: Activity, private val parent: Lin
         return EntryNutrients(energy, p, c, f, na)
     }
     fun referenceGrams(validate: Boolean = true): Double? {
+        if (usesPortions) return null
         val grams = FoodInputDraft.grams(NumberInput.raw(basis), if (original.basis == null) null else FoodInputDraft.DEFAULT_GRAMS)
         if (validate && (grams == null || grams == 0.0)) basis.error = if (original.basis == null && basis.text.isBlank())
-            "旧配方未保存重量，请填写整锅成品克重" else "请输入有效非零克数或留空按100g；无法除以0"
+            "按克记录需填写成品克重，也可切回按整份记录" else "请输入有效非零克数或留空按100g；无法除以0"
         if (validate && (grams == null || grams == 0.0)) reveal(basis)
         return grams?.takeIf { it != 0.0 }
     }
     fun portion(validate: Boolean = true): FoodPortion? {
         val n = reference(validate)
-        val g = referenceGrams(validate)
-        val amount = FoodInputDraft.grams(NumberInput.raw(actual))
-        if (validate && amount == null) actual.error = "请输入有效克数或计算式，或留空按100g（允许负数和0）"
+        val g = if (usesPortions) 1.0 else referenceGrams(validate)
+        val amount = FoodInputDraft.grams(NumberInput.raw(actual), defaultAmount)
+        if (validate && amount == null) actual.error = if (usesPortions) "请输入有效份数或计算式，或留空按1份（允许负数和0）" else "请输入有效克数或计算式，或留空按100g（允许负数和0）"
         if (n == null || g == null || amount == null) return null
-        val p = FoodPortion(g, amount, n)
+        val p = FoodPortion(g, amount, n, unit)
         if (!p.values.valid()) { if (validate) actual.error = "计算结果不是有限数值，请检查计算式"; return null }
         return p
     }
-    fun referenceUnchanged() = reference(false) == original.reference && referenceGrams(false) == original.basis
-    fun actualUnchanged() = FoodInputDraft.grams(NumberInput.raw(actual)) == (original.actual ?: FoodInputDraft.DEFAULT_GRAMS)
+    fun referenceUnchanged() = unit == original.unit && reference(false) == original.reference && referenceGrams(false) == original.basis
+    fun actualUnchanged() = unit == original.unit && FoodInputDraft.grams(NumberInput.raw(actual), defaultAmount) == (original.actual ?: original.defaultAmount)
     private fun update() {
-        help.setText(if (original.basis == null) R.string.food_unknown_weight_help else R.string.food_gram_help)
+        val basisVisibility = if (usesPortions) android.view.View.GONE else android.view.View.VISIBLE
+        referenceFields.getChildAt(referenceFields.indexOfChild(basis) - 1).visibility = basisVisibility
+        basis.visibility = basisVisibility
+        basis.hint = if (original.basis == null) "按克记录时填写成品克重" else "留空默认为100g"
+        amountTitle.text = if (usesPortions) "实际食用份数（可留空）" else "实际食用量（g，可输入算式）"
+        actual.hint = if (usesPortions) "留空按1份" else "留空按100克"
+        actual.contentDescription = if (usesPortions) "实际食用份数，可输入计算式，留空按1份" else "实际食用克数，可输入计算式，留空按100克"
+        unitToggle.visibility = if (original.unit == FoodUnit.PORTIONS) android.view.View.VISIBLE else android.view.View.GONE
+        unitToggle.text = if (usesPortions) "改按克记录（需填写成品克重）" else "改按整份记录（无需重量）"
+        help.setText(if (usesPortions) R.string.food_portion_help else if (original.basis == null) R.string.food_unknown_weight_help else R.string.food_gram_help)
         val reference = reference(false)
         val grams = referenceGrams(false)
-        referenceLabel.text = if (reference != null && grams != null) "每 ${FoodValues.f(grams)} g 含 ${FoodValues.f(reference.kcal)} kcal · 编辑" else "填写参考热量与营养数值   ›"
+        referenceLabel.text = when {
+            reference != null && usesPortions -> "每整份含 ${FoodValues.f(reference.kcal)} kcal · 编辑"
+            reference != null && grams != null -> "每 ${FoodValues.f(grams)} g 含 ${FoodValues.f(reference.kcal)} kcal · 编辑"
+            else -> "填写参考热量与营养数值   ›"
+        }
         val food = selectedFood
         FoodPhotos.display(picture, food?.image.orEmpty(), food?.let { FoodPhotos.fallback(it) } ?: FoodIcons.categoryKey(FoodCategories.LEGACY))
         val portion = portion(false)
-        val amount = FoodInputDraft.grams(NumberInput.raw(actual))
-        val manual = amount == 100.0
+        val amount = FoodInputDraft.grams(NumberInput.raw(actual), defaultAmount)
+        val manual = amount == defaultAmount
         actual.background = android.graphics.drawable.StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), DesignUi.shape(activity, Color.WHITE, 12))
             addState(intArrayOf(), DesignUi.shape(activity, if (manual) DesignUi.forest else Color.WHITE, 12))
@@ -129,14 +152,15 @@ class FoodNutritionInput(private val activity: Activity, private val parent: Lin
         val colors = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()), intArrayOf(DesignUi.ink, if (manual) Color.WHITE else DesignUi.ink))
         actual.setTextColor(colors); actual.setHintTextColor(colors)
         val preset = presets.getChildAt(1) as Button
-        preset.background = DesignUi.shape(activity, if (amount == 150.0) DesignUi.forest else Color.WHITE, 12)
-        preset.setTextColor(if (amount == 150.0) Color.WHITE else DesignUi.ink)
+        preset.text = if (usesPortions) "半份" else "150 克"
+        val presetSelected = amount == if (usesPortions) 0.5 else 150.0
+        preset.background = DesignUi.shape(activity, if (presetSelected) DesignUi.forest else Color.WHITE, 12)
+        preset.setTextColor(if (presetSelected) Color.WHITE else DesignUi.ink)
         preview.removeAllViews()
         DesignUi.section(preview, "本次摄入", 33); DesignUi.space(preview, 14)
         DesignUi.item(preview, "热量", portion?.let { "${FoodValues.f(it.values.kcal)} kcal" } ?: "待填写")
         DesignUi.space(preview, 8)
         DesignUi.macros(preview, listOf(DesignUi.Macro("蛋白质", portion?.values?.protein, null),
             DesignUi.Macro("脂肪", portion?.values?.fat, null), DesignUi.Macro("碳水化合物", portion?.values?.carbs, null)), targets = false)
-        if (original.basis == null && basis.text.isBlank()) help.text = "此旧配方未保存整锅克重，请先填写真实成品克重，再换算本次摄入。"
     }
 }

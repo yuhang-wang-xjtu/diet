@@ -43,30 +43,34 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         } }
         dialog.show(); FormKeyboard(body) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }; return dialog
     }
-    fun show(subtitle: String = "按分类选择食物") { pickFood(createManual = { onSelect(null) }, subtitle = subtitle) { onSelect(it) } }
-    private fun pickFood(createManual: (() -> Unit)? = null, subtitle: String = "快捷食物 / 选择食物", pick: (QuickFood) -> Unit) {
+    private class MealChoice(var selected: Meal, val change: (Meal) -> Unit)
+    private fun mealPicker(c: LinearLayout, choice: MealChoice?) {
+        if (choice != null) MealPicker.add(c, choice.selected) { choice.selected = it; choice.change(it) }
+    }
+    fun show(subtitle: String = "按分类选择食物", initialMeal: Meal? = null, onMealChanged: (Meal) -> Unit = {}) {
+        pickFood(createManual = { onSelect(null) }, subtitle = subtitle, mealChoice = initialMeal?.let { MealChoice(it, onMealChanged) }) { onSelect(it) }
+    }
+    private fun pickFood(createManual: (() -> Unit)? = null, subtitle: String = "快捷食物 / 选择食物", mealChoice: MealChoice? = null, pick: (QuickFood) -> Unit) {
         val foods = store.quickFoods() + FoodCatalog.all
         val sheet = DesignSheet(activity, "快捷食物", subtitle)
         val c = sheet.content
-        DesignUi.section(c, "按分类选择", 4); DesignUi.space(c, 17)
-        fun open(category: String) { sheet.dismiss(); pickCategory(category, foods, createManual, subtitle, pick) }
-        val staples = foods.filter { FoodCategories.of(it) == "主食" }
-        val feature = DesignUi.foodFeature(activity, "主食", staples.take(3).joinToString("、") { it.name.substringBefore('（') }, "选择主食   →", "design:rice", "design:rice", true)
-        feature.setOnClickListener { open("主食") }; c.addView(feature)
-        DesignUi.space(c, 16)
+        mealPicker(c, mealChoice)
+        DesignUi.section(c, "按分类选择", 4)
+        fun open(category: String) { sheet.dismiss(); pickCategory(category, foods, createManual, subtitle, mealChoice, pick) }
         val search = field(c, "搜索食物或分类")
-        val grid = FoodTiles.grid(activity)
-        c.addView(grid, LinearLayout.LayoutParams(-1, dp(360)))
+        DesignUi.space(c, 12)
+        val grid = FoodTileGrid(activity)
+        c.addView(grid, LinearLayout.LayoutParams(-1, -2))
         var categories = emptyList<String>()
         fun refresh() {
             val query = search.text.toString().trim()
-            categories = FoodCategories.categories(foods).filter { it != "主食" || query.isNotBlank() }.filter { category ->
+            categories = FoodCategories.available(foods).filter { category ->
                 query.isBlank() || category.contains(query, true) || foods.any { FoodCategories.of(it) == category && it.name.contains(query, true) }
             }
-            grid.adapter = FoodTiles(activity, categories.map { category -> FoodTile(category, "${foods.count { FoodCategories.of(it) == category }}项", FoodIcons.categoryKey(category)) })
+            grid.submit(categories.map { category -> FoodTile(category, "${foods.count { FoodCategories.of(it) == category }}项", FoodIcons.categoryKey(category)) }) { open(categories[it]) }
         }
-        grid.setOnItemClickListener { _, _, position, _ -> open(categories[position]) }
         watch(search) { refresh() }; refresh()
+        DesignUi.space(c, 16)
         button(c, if (createManual == null) "＋ 自定义食物" else "＋ 手动输入食物") {
             sheet.dismiss(); if (createManual != null) createManual() else editFood(null) { pick(it) }
         }
@@ -74,35 +78,32 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
         button(c, "管理已有菜品 · 分类 / 图片 / 编辑") { sheet.dismiss(); activity.startActivity(Intent(activity, FoodManagerActivity::class.java)) }
         sheet.show()
     }
-    private fun pickCategory(category: String, foods: List<QuickFood>, createManual: (() -> Unit)?, subtitle: String, pick: (QuickFood) -> Unit) {
+    private fun pickCategory(category: String, foods: List<QuickFood>, createManual: (() -> Unit)?, subtitle: String, mealChoice: MealChoice?, pick: (QuickFood) -> Unit) {
         val candidates = foods.filter { FoodCategories.of(it) == category }
         var selected = candidates.firstOrNull { it.id == -1L } ?: candidates.firstOrNull()
-        val sheet = DesignSheet(activity, category, "快捷食物 / 选择食物", "选择食物")
+        val sheet = DesignSheet(activity, category, subtitle, "选择食物")
         val c = sheet.content
-        DesignUi.section(c, "食物列表", 4); DesignUi.space(c, 16)
-        val featured = column().apply { setPadding(0, 0, 0, 0) }; c.addView(featured)
-        fun preview() {
-            featured.removeAllViews()
-            val food = selected
-            if (food != null) {
-                featured.addView(DesignUi.foodFeature(activity, food.name.substringBefore('（'), food.basisGrams?.let { "每 ${FoodValues.f(it)} 克" } ?: "整锅配方", "${FoodValues.f(food.values.kcal)} kcal", food.image, FoodPhotos.fallback(food)))
-                sheet.saveButton?.text = "选择${food.name.substringBefore('（')}"
-            } else featured.addView(DesignUi.text(activity, "这个分类还没有食物，可先创建自定义食物。", 14f, DesignUi.muted))
-            sheet.saveButton?.isEnabled = food != null
-        }
-        preview(); DesignUi.space(c, 16)
+        mealPicker(c, mealChoice)
+        DesignUi.section(c, "食物列表", 4)
         val search = field(c, "搜索$category")
-        val grid = FoodTiles.grid(activity); c.addView(grid, LinearLayout.LayoutParams(-1, dp(320)))
+        DesignUi.space(c, 12)
+        val grid = FoodTileGrid(activity); c.addView(grid, LinearLayout.LayoutParams(-1, -2))
+        val empty = DesignUi.text(activity, "没有匹配的食物", 14f, DesignUi.muted); c.addView(empty)
         var filtered = candidates
         fun refresh() {
             val q = search.text.toString().trim(); filtered = candidates.filter { it.name.contains(q, true) || FoodCatalog.aliases.any { alias -> alias.key.contains(q) && alias.value.id == it.id } }
-            grid.adapter = FoodTiles(activity, filtered.map { FoodTiles.food(it).copy(selected = it.id == selected?.id) })
+            if (filtered.none { it.id == selected?.id }) selected = filtered.firstOrNull()
+            sheet.saveButton?.text = selected?.let { "选择${it.name.substringBefore('（')}" } ?: "选择食物"
+            sheet.saveButton?.isEnabled = selected != null
+            empty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            grid.submit(filtered.map { FoodTiles.food(it).copy(selected = it.id == selected?.id) }) { index ->
+                selected = filtered[index]; grid.select(index)
+                sheet.saveButton?.text = "选择${selected!!.name.substringBefore('（')}"
+            }
         }
-        grid.setOnItemClickListener { _, _, position, _ -> selected = filtered[position]; preview(); refresh() }
         watch(search) { refresh() }; refresh()
-        button(c, "‹ 返回分类") { sheet.dismiss(); pickFood(createManual, subtitle, pick) }
-        sheet.navigateBack = { sheet.dismiss(); pickFood(createManual, subtitle, pick) }
-        sheet.setOnCancelListener { pickFood(createManual, subtitle, pick) }
+        sheet.navigateBack = { sheet.dismiss(); pickFood(createManual, subtitle, mealChoice, pick) }
+        sheet.setOnCancelListener { pickFood(createManual, subtitle, mealChoice, pick) }
         sheet.saveButton?.setOnClickListener { selected?.let { sheet.dismiss(); pick(it) } }
         sheet.show()
     }
@@ -142,9 +143,9 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
     }
     private fun portion(food: QuickFood, action: String, chosen: (FoodSelection) -> Unit, initial: FoodIngredient? = null) {
         val c = column()
-        val actual = initial?.takeIf { food.basisGrams != null }?.let { food.factor(it.amount, it.unit) * food.basisGrams!! }
+        val actual = initial?.let { if (food.basisGrams != null) food.factor(it.amount, it.unit) * food.basisGrams else it.amount }
         val fields = FoodNutritionInput(activity, c, food.name, FoodInputDraft.fromFood(food, actual), food)
-        label(c, "填写参考营养，实际克数可留空按100g。这里的修改只用于本次原料，不会改写已保存的快捷食物。")
+        label(c, "有重量时按克记录，未称重套餐可直接按份记录。这里的修改只用于本次原料，不会改写已保存的快捷食物。")
         label(c, food.details())
         form(food.name, c, action) {
             val reference = fields.reference(requireMacros = true)
@@ -153,9 +154,9 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
                 fields.name.text.isBlank() -> { fields.name.error = "请输入食物名称"; false }
                 reference == null || portion == null -> false
                 else -> {
-                    val snapshot = food.copy(name = NumberInput.raw(fields.name).trim(), basisGrams = portion.basis,
+                    val snapshot = food.copy(name = NumberInput.raw(fields.name).trim(), basisGrams = portion.basis.takeIf { portion.unit == FoodUnit.GRAMS },
                         values = FoodValues(reference.kcal, reference.protein!!, reference.carbs!!, reference.fat!!, reference.sodium))
-                    chosen(FoodSelection(snapshot, portion.actual, FoodUnit.GRAMS)); true
+                    chosen(FoodSelection(snapshot, portion.actual, portion.unit)); true
                 }
             }
         }
@@ -175,7 +176,7 @@ class FoodLibraryUi(private val activity: Activity, private val store: Store, pr
             val grams = fields.referenceGrams()
             val ug = if (unitGrams.text.isBlank()) { if (existing != null && existing.unitGrams == null) null else grams } else FoodMath.number(NumberInput.raw(unitGrams))
             when {
-                appearance == null || reference == null || grams == null -> false
+                appearance == null || reference == null || !fields.usesPortions && grams == null -> false
                 fields.name.text.isBlank() || fields.name.text.length > 80 -> { fields.name.error = "请输入1–80字的名称"; false }
                 unitGrams.text.isNotBlank() && ug == null -> { unitGrams.error = "请输入有效数值或留空（允许负数）"; false }
                 unit.text.isBlank() || unit.text.length > 20 -> { unit.error = "请输入1–20字的单位"; false }

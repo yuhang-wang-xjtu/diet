@@ -76,7 +76,7 @@ object DesignUi {
         minHeight = dp(context, 52); minimumHeight = dp(context, 52)
         setPadding(dp(context, 15), dp(context, 8), dp(context, 15), dp(context, 8)); setOnClickListener { action() }
     }
-    fun header(parent: LinearLayout, title: String, subtitle: String, back: (() -> Unit)? = null, dateAction: (() -> Unit)? = null) {
+    fun header(parent: LinearLayout, title: String, subtitle: String, back: (() -> Unit)? = null, dateAction: (() -> Unit)? = null): TextView {
         val context = parent.context
         space(parent, 14)
         val brand = row(context)
@@ -88,12 +88,14 @@ object DesignUi {
             brand.minimumHeight = dp(context, 32); brand.setOnClickListener { back() }; brand.contentDescription = "返回"
         }
         parent.addView(brand, LinearLayout.LayoutParams(-1, dp(context, 20)))
-        space(parent, 10); parent.addView(text(context, title, 31f, bold = true, line = 42))
+        val titleView = text(context, title, 31f, bold = true, line = 42)
+        space(parent, 10); parent.addView(titleView)
         space(parent, 9)
         parent.addView(text(context, subtitle, 13f, muted, line = 18).apply {
             if (dateAction != null) { setOnClickListener { dateAction() }; contentDescription = "$subtitle，点击选择日期" }
         })
         space(parent, 17)
+        return titleView
     }
     fun section(parent: LinearLayout, title: String, before: Int = 22) {
         space(parent, before); parent.addView(text(parent.context, title, 19f, bold = true, line = 26))

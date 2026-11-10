@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var body: LinearLayout
     private var date = LocalDate.now()
     private var tab = 0
+    private var pageScroll: ScrollView? = null
+    private var renderedTab = 0
+    private val scrollPositions = IntArray(4)
     private var detailSheet: DesignSheet? = null
     private var exactWasAllowed = false
     private val stepsClient by lazy { StepsClient(this) }
@@ -179,6 +182,8 @@ class MainActivity : ComponentActivity() {
         detailSheet = sheet; sheet.show()
     }
     private fun render() {
+        pageScroll?.let { scrollPositions[renderedTab] = it.scrollY }
+        renderedTab = tab
         detailSheet?.dismiss(); detailSheet = null
         root = column().apply { setBackgroundColor(bg) }
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -190,11 +195,17 @@ class MainActivity : ComponentActivity() {
         }
         val scroll = ScrollView(this).apply { isFillViewport = true; clipToPadding = false }
         body = column().apply { setPadding(dp(20), 0, dp(20), dp(24)) }
-        scroll.addView(body); root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val pages = SwipePageLayout(this) { selectTab(tab + it) }
+        scroll.addView(body); pages.addView(scroll, android.widget.FrameLayout.LayoutParams(-1, -1))
+        root.addView(pages, LinearLayout.LayoutParams(-1, 0, 1f))
+        pageScroll = scroll
         when (tab) { 0 -> overview(); 1 -> diary(); 2 -> trends(); else -> settings() }
-        root.addView(DesignUi.navigation(this, tab) { tab = it; render() }, LinearLayout.LayoutParams(-1, dp(74)))
+        root.addView(DesignUi.navigation(this, tab) { selectTab(it) }, LinearLayout.LayoutParams(-1, dp(74)))
         setContentView(root); root.requestApplyInsets()
+        val position = scrollPositions[tab]
+        scroll.post { scroll.scrollTo(0, position) }
     }
+    private fun selectTab(next: Int) { if (next in 0..3 && next != tab) { tab = next; render() } }
     private fun dateRow() {
         val r = row()
         r.addView(button("‹") { date = date.minusDays(1); render() }, LinearLayout.LayoutParams(dp(48), dp(48)))
@@ -211,8 +222,21 @@ class MainActivity : ComponentActivity() {
         val daily = if (automatic) bodyEstimate?.expenditure else baseline
         val totals = Energy.totals(entries, daily, walking.kcal ?: 0.0, addExercise = !automatic)
         DesignUi.energyCard(body, totals, daily, automatic) { tab = 3; render() }
-        DesignUi.section(body, "营养摄入"); space(body, 11)
-        DesignUi.macros(body, macroValues(entries))
+        DesignUi.section(body, "营养摄入  ›")
+        val nutritionHeading = body.getChildAt(body.childCount - 1)
+        space(body, 11)
+        val nutrition = column()
+        DesignUi.macros(nutrition, macroValues(entries))
+        nutrition.contentDescription = "每日营养，点击查看钠摄入及未填统计"
+        nutrition.isFocusable = true
+        nutrition.setOnClickListener {
+            val sheet = DesignSheet(this, "营养明细", date.toString())
+            val previous = body
+            try { body = sheet.content; nutritionCard(entries) } finally { body = previous }
+            detailSheet = sheet; sheet.show()
+        }
+        nutritionHeading.setOnClickListener { nutrition.performClick() }
+        body.addView(nutrition)
         DesignUi.section(body, "今日记录", 25); space(body, 13)
         val meal = suggestedMeal()
         val items = entries.filter { it.kind == "food" && Meal.from(it.meal) == meal }
@@ -221,10 +245,8 @@ class MainActivity : ComponentActivity() {
         space(body, 24)
         energyHistoryCard()
         val actions = row()
-        actions.addView(button("手动输入食物") { entryDialog("food", selectedMeal = meal) }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(10) })
-        actions.addView(button("＋ 运动") { entryDialog("exercise") }, LinearLayout.LayoutParams(0, -2, 1f)); body.addView(actions); space(body)
-        body.addView(button("＋ 零食") { entryDialog("food", selectedMeal = Meal.SNACK) }); space(body)
-        body.addView(button("回顾食物") { foodHistory() }); space(body)
+        actions.addView(button("＋ 运动") { entryDialog("exercise") }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(10) })
+        actions.addView(button("回顾食物") { foodHistory() }, LinearLayout.LayoutParams(0, -2, 1f)); body.addView(actions); space(body)
         if (store.profiles().isEmpty()) {
             val setup = card(); setup.addView(text("先认识一下你", 19f, bold = true))
             setup.addView(text("填写个人资料，自动估算消耗和营养目标。", 13f, muted)); setup.addView(button("填写个人资料", true) { profileDialog() })
@@ -236,7 +258,6 @@ class MainActivity : ComponentActivity() {
         val weight = store.weights().find { it.date == date.toString() }
         val wc = card(); metric(wc, "当日体重", weight?.let { "${kg(it.kg)} kg" } ?: "还没记录", "固定时段记录，更容易比较")
         space(wc, 12); wc.addView(button(if (weight == null) "＋ 记录体重" else "修改体重") { weightDialog(weight) })
-        nutritionCard(entries)
         body.addView(text("完整记录后，热量缺口才有参考意义。", 12f, muted))
     }
     private fun metric(parent: LinearLayout, label: String, value: String, hint: String) {
@@ -264,7 +285,6 @@ class MainActivity : ComponentActivity() {
         }
         body.addView(meals); space(body, 46)
         body.addView(button("＋  记录${suggested.label}", true) { quickRecord(suggested) }, LinearLayout.LayoutParams(-1, dp(52))); space(body, 24)
-        body.addView(button("手动输入食物") { entryDialog("food", selectedMeal = suggested) }); space(body, 10)
         body.addView(button("回顾之前的食物") { foodHistory() }); space(body)
         val exercise = card(); val line = row()
         line.addView(text("运动", 19f, bold = true), LinearLayout.LayoutParams(0, -2, 1f)); line.addView(button("＋ 添加") { entryDialog("exercise") }); exercise.addView(line)
@@ -276,7 +296,10 @@ class MainActivity : ComponentActivity() {
         val item = column().apply { background = shape(bg, 12); setPadding(dp(14), dp(12), dp(14), dp(12)); setOnClickListener { entryDialog(e.kind, e) } }
         val line = row(); line.addView(text(e.name, 15f, bold = true), LinearLayout.LayoutParams(0, -2, 1f)); line.addView(text("${fmt(e.kcal)} kcal", 14f, green, true)); item.addView(line)
         item.addView(text(if (e.kind == "exercise") "${e.minutes} 分钟 · 点击编辑" else "点击编辑或删除", 11f, muted)); parent.addView(item)
-        PortionJson.decode(e.portion)?.let { item.addView(text("实际 ${FoodValues.f(it.actual)}g / 参考 ${FoodValues.f(it.basis)}g", 11f, muted)) }
+        PortionJson.decode(e.portion)?.let {
+            val unit = if (it.unit == FoodUnit.PORTIONS) "份" else "g"
+            item.addView(text("实际 ${FoodValues.f(it.actual)}$unit / 参考 ${FoodValues.f(it.basis)}$unit", 11f, muted))
+        }
         if (e.kind == "food") item.addView(text("蛋白 ${e.protein?.let { kg(it) } ?: "未填"} / 脂肪 ${e.fat?.let { kg(it) } ?: "未填"} / 碳水 ${e.carbs?.let { kg(it) } ?: "未填"} g", 11f, muted))
         if (e.kind == "food") item.addView(text("钠 ${e.sodium?.let { fmt(it) + " mg" } ?: "未填"}${if (e.details.isNotBlank()) " · 含份量 / 配方说明" else ""}", 11f, muted))
         if (e.kind == "exercise") item.addView(text("${e.exerciseRate?.let { "${if (e.exerciseRateKind == "TOTAL") "总" else "活动"}消耗 ${kg(it)} kcal/分钟 · " } ?: "直接填写 · "}重叠步数 ${e.overlapSteps}", 11f, muted))
@@ -853,7 +876,9 @@ class MainActivity : ComponentActivity() {
     }
     private fun dialogBody() = column().apply { setPadding(dp(24), dp(8), dp(24), dp(8)) }
     private fun quickRecord(meal: Meal? = null) {
-        FoodLibraryUi(this, store, foodPhotos) { food -> entryDialog("food", selectedMeal = meal, food = food) }.show("${date.monthValue} 月 ${date.dayOfMonth} 日 / ${(meal ?: suggestedMeal()).label}")
+        var selected = meal ?: suggestedMeal()
+        FoodLibraryUi(this, store, foodPhotos) { food -> entryDialog("food", selectedMeal = selected, food = food) }
+            .show("${date.monthValue} 月 ${date.dayOfMonth} 日 / 饮食记录", selected) { selected = it }
     }
     private fun entryDialog(kind: String, existing: Entry? = null, selectedMeal: Meal? = null, food: QuickFood? = null) {
         if (kind == "exercise") { ExerciseUi(this, store, date.toString()) { render() }.entry(existing); return }
@@ -861,13 +886,9 @@ class MainActivity : ComponentActivity() {
         val selected = selectedMeal ?: existing?.let { Meal.from(it.meal) } ?: suggestedMeal()
         val dialog = DesignSheet(this, if (existing != null) "编辑食物" else "记录${if (selected == Meal.UNSPECIFIED) "食物" else selected.label}", "$targetDate / 饮食摄入", "保存到${selected.label}")
         val c = dialog.content; c.isFocusableInTouchMode = true
-        val mealPicker = Spinner(this).apply {
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, Meal.entries.map { it.label })
-            setSelection(selected.ordinal); minimumHeight = dp(48)
-        }
-        mealPicker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { dialog.saveButton?.text = "保存到${Meal.entries[position].label}" }
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        val mealPicker = MealPicker.add(c, selected) { meal ->
+            dialog.saveButton?.text = "保存到${meal.label}"
+            if (existing == null) dialog.updateTitle("记录${if (meal == Meal.UNSPECIFIED) "食物" else meal.label}")
         }
         lateinit var fields: FoodNutritionInput
         var chosenAnotherFood = food != null
@@ -877,14 +898,13 @@ class MainActivity : ComponentActivity() {
             FoodLibraryUi(this, store, foodPhotos) { selected ->
                 chosenAnotherFood = true; fields.load(selected)
                 foodDetails = selected?.details() ?: ""; details.text = foodDetails
-            }.show()
+            }.show("$targetDate / 饮食记录", Meal.entries[mealPicker.selectedItemPosition]) { mealPicker.setSelection(it.ordinal) }
         }
         val initial = existing?.let { FoodInputDraft.fromEntry(it) } ?: food?.let { FoodInputDraft.fromFood(it) }
             ?: FoodInputDraft(FoodInputDraft.DEFAULT_GRAMS, null, null)
         fields = FoodNutritionInput(this, c, existing?.name ?: food?.name ?: "", initial, food)
         if (existing != null && existing.portion.isBlank()) c.addView(text("旧记录没有保存克数，暂按参考100g / 实际100g载入以保留原摄入总量；未调整克数时不会补写重量信息。", 11f, muted))
         c.addView(details); space(c, 12); c.addView(chooseFood)
-        c.addView(text("餐次（零食不提醒）", 12f, muted)); c.addView(mealPicker)
         if (existing != null) c.addView(button("删除这条食物") { confirmDelete { store.delete(existing); dialog.dismiss(); render() } })
         if (existing == null) c.addView(button("这一餐没吃") {
             val meal = Meal.entries[mealPicker.selectedItemPosition]

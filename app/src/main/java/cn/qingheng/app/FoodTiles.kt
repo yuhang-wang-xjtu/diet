@@ -46,3 +46,38 @@ class FoodTiles(private val context: Context, private val items: List<FoodTile>)
         fun food(food: QuickFood) = FoodTile(food.name, "${FoodValues.f(food.values.kcal)} kcal / ${food.basisGrams?.let { FoodValues.f(it) + "g" } ?: "整锅"}", food.image, FoodPhotos.fallback(food))
     }
 }
+
+/** Wraps all tiles in the page's ScrollView, without a second scrolling/touch surface. */
+class FoodTileGrid(context: Context) : GridLayout(context) {
+    private val gap = DesignUi.dp(context, 12)
+    init { columnCount = 2; orientation = HORIZONTAL }
+    fun submit(items: List<FoodTile>, select: (Int) -> Unit) {
+        removeAllViews()
+        val adapter = FoodTiles(context, items)
+        items.indices.forEach { index ->
+            val tile = adapter.getView(index, null, this)
+            val params = LayoutParams(spec(index / 2), spec(index % 2)).apply {
+                width = 0; height = 0
+                rightMargin = if (index % 2 == 0) gap else 0
+                bottomMargin = if (index / 2 < (items.size - 1) / 2) gap else 0
+            }
+            tile.setOnClickListener { select(index) }; tile.isFocusable = true
+            addView(tile, params)
+        }
+        visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+    }
+    fun select(position: Int) {
+        for (index in 0 until childCount) {
+            val selected = index == position
+            (getChildAt(index).background as GradientDrawable).apply {
+                setColor(if (selected) Color.rgb(235, 246, 238) else Color.WHITE)
+                setStroke(DesignUi.dp(context, if (selected) 2 else 1), if (selected) DesignUi.green else Color.rgb(225, 233, 223))
+            }
+        }
+    }
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val side = ((MeasureSpec.getSize(widthMeasureSpec) - paddingLeft - paddingRight - gap) / 2).coerceAtLeast(1)
+        for (index in 0 until childCount) (getChildAt(index).layoutParams as LayoutParams).apply { width = side; height = side }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+}

@@ -82,6 +82,18 @@ class UnifiedFoodInputTest {
         val food = FoodCatalog.tomatoEgg
         val d = FoodInputDraft.fromFood(food)
         assertNull(d.basis); assertNull(d.actual)
+        assertEquals(FoodUnit.PORTIONS, d.unit); assertEquals(1.0, d.defaultAmount, 0.0)
         assertEquals(food.values.kcal, d.reference!!.kcal, 0.0)
+    }
+    @Test fun portionSnapshotsReopenInPortionsAndOldSnapshotsStillMeanGrams() {
+        val reference = EntryNutrients(400.123456789, 20.123456789, null, 8.23456789, null)
+        val portion = FoodPortion(1.0, 0.5, reference, FoodUnit.PORTIONS)
+        val encoded = PortionJson.encode(portion)
+        assertEquals(portion, PortionJson.decode(encoded))
+        val total = portion.values
+        val draft = FoodInputDraft.fromEntry(Entry(date = "2026-11-06", kind = "food", name = "套餐", kcal = total.kcal, portion = encoded))
+        assertNull(draft.basis); assertEquals(FoodUnit.PORTIONS, draft.unit); assertEquals(reference, draft.reference)
+        assertEquals(0.5, draft.actual!!, 0.0)
+        assertEquals(FoodUnit.GRAMS, PortionJson.decode("""{"basis":100,"actual":150,"kcal":200,"protein":null,"carbs":null,"fat":null,"sodium":null}""")!!.unit)
     }
 }

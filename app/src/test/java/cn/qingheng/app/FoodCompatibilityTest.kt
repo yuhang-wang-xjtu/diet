@@ -35,6 +35,13 @@ class FoodCompatibilityTest {
         assertTrue(FoodCategories.categories(listOf(old)).contains(FoodCategories.LEGACY))
         assertEquals(1, FoodCategories.categories(listOf(old, old)).count { it == FoodCategories.LEGACY })
     }
+    @Test fun foodSelectionCategoriesOnlyContainNonemptyGroupsIncludingLegacyAndCustom() {
+        assertTrue(FoodCategories.available(emptyList()).isEmpty())
+        assertEquals(listOf("主食"), FoodCategories.available(listOf(FoodCatalog.all.single { it.id == -1L })))
+        val foods = listOf(FoodCatalog.rice.copy(category = "自定义"), FoodJson.decode(legacy))
+        assertEquals(listOf(FoodCategories.LEGACY, "自定义"), FoodCategories.available(foods))
+        assertTrue(FoodCategories.categories(emptyList()).contains("饮品"))
+    }
     @Test fun directGramsScaleKnownNutrientsAndPreserveUnknowns() {
         val portion = FoodPortion(100.0, 150.0, EntryNutrients(200.0, 10.0, null, 0.0, null))
         assertEquals(300.0, portion.values.kcal, 0.0)

@@ -50,7 +50,7 @@ data class QuickFood(
         if (ingredients.isNotEmpty()) {
             append("\n整锅原料：")
             ingredients.forEach { append("\n${it.food.name} ${it.food.quantity(it.amount, it.unit)}；${it.food.source}") }
-            append(if (basisGrams == null) "\n未填写成品熟重，请先补充整锅成品克重再按实际克数记录。" else "\n整锅成品熟重：${FoodValues.f(basisGrams)} g。")
+            append(if (basisGrams == null) "\n未填写成品熟重，可直接按整份记录；按克记录时再补充成品克重。" else "\n整锅成品熟重：${FoodValues.f(basisGrams)} g。")
         }
     }
 }
@@ -73,7 +73,7 @@ object FoodMath {
     fun sum(items: List<FoodIngredient>): FoodValues = items.fold(FoodValues.ZERO) { total, item -> total + item.values }
     fun recipe(name: String, items: List<FoodIngredient>, cookedGrams: Double?, id: Long = 0) = QuickFood(
         id, name, cookedGrams, sum(items), "整锅", cookedGrams,
-        "按原材料相加估算", note = "假设所填原料均进入成品；不自动估计残油、弃汤和烹调营养损失。记录时补充成品克重并填写实际食用克数。",
+        "按原材料相加估算", note = "假设所填原料均进入成品；不自动估计残油、弃汤和烹调营养损失。可按整份记录，或补充成品克重后按实际克数记录。",
         ingredients = items.map { it.copy(food = it.food.copy(ingredients = emptyList())) })
 }
 object FoodCategories {
@@ -86,17 +86,20 @@ object FoodCategories {
         -5L, -6L, -7L, -8L -> "佐料"; else -> "菜品"
     }
     fun categories(foods: List<QuickFood>) = (defaults + foods.map { of(it) }).distinct()
+    /** Selection lists contain existing foods; editor suggestions may still include empty defaults. */
+    fun available(foods: List<QuickFood>) = categories(foods).filter { category -> foods.any { of(it) == category } }
 }
 data class EntryNutrients(val kcal: Double, val protein: Double?, val carbs: Double?, val fat: Double?, val sodium: Double?) {
     fun scale(factor: Double) = EntryNutrients(kcal * factor, protein?.times(factor), carbs?.times(factor), fat?.times(factor), sodium?.times(factor))
     fun valid() = listOf(kcal, protein, fat, carbs, sodium).all { it == null || it.isFinite() }
     fun summary() = "${FoodValues.f(kcal)} kcal · 蛋白 ${protein?.let { FoodValues.f(it) } ?: "未知"}g · 脂肪 ${fat?.let { FoodValues.f(it) } ?: "未知"}g · 碳水 ${carbs?.let { FoodValues.f(it) } ?: "未知"}g"
 }
-data class FoodPortion(val basis: Double, val actual: Double, val reference: EntryNutrients) {
+data class FoodPortion(val basis: Double, val actual: Double, val reference: EntryNutrients, val unit: FoodUnit = FoodUnit.GRAMS) {
     init { require(basis.isFinite() && basis != 0.0 && actual.isFinite()) }
     val values get() = reference.scale(actual / basis)
 }
-data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference: EntryNutrients?) {
+data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference: EntryNutrients?, val unit: FoodUnit = FoodUnit.GRAMS) {
+    val defaultAmount get() = if (unit == FoodUnit.PORTIONS) 1.0 else DEFAULT_GRAMS
     companion object {
         const val DEFAULT_GRAMS = 100.0
         val MACRO_ORDER = listOf("protein", "fat", "carbs")
@@ -104,10 +107,12 @@ data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference
             if (raw.isBlank()) default else FoodMath.number(raw)
         fun fromFood(food: QuickFood, actual: Double? = null) = FoodInputDraft(
             food.basisGrams?.let { DEFAULT_GRAMS }, actual,
-            food.values.nutrients().let { n -> food.basisGrams?.let { n.scale(DEFAULT_GRAMS / it) } ?: n })
+            food.values.nutrients().let { n -> food.basisGrams?.let { n.scale(DEFAULT_GRAMS / it) } ?: n },
+            if (food.basisGrams == null) FoodUnit.PORTIONS else FoodUnit.GRAMS)
         fun fromEntry(entry: Entry): FoodInputDraft {
             val p = PortionJson.decode(entry.portion)
             return if (p == null) FoodInputDraft(DEFAULT_GRAMS, DEFAULT_GRAMS, EntryNutrients(entry.kcal, entry.protein, entry.carbs, entry.fat, entry.sodium))
+            else if (p.unit == FoodUnit.PORTIONS) FoodInputDraft(null, p.actual, p.reference.scale(1.0 / p.basis), FoodUnit.PORTIONS)
             else FoodInputDraft(DEFAULT_GRAMS, p.actual, p.reference.scale(DEFAULT_GRAMS / p.basis))
         }
     }

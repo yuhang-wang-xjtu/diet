@@ -10,6 +10,8 @@ class DesignSheet(activity: Activity, title: String, subtitle: String, saveLabel
     var navigateBack: (() -> Unit)? = null
     val content = DesignUi.column(activity).apply { setPadding(DesignUi.dp(activity, 20), 0, DesignUi.dp(activity, 20), DesignUi.dp(activity, 20)) }
     val saveButton: Button? = saveLabel?.let { DesignUi.button(activity, it) {} }
+    private val heading: TextView
+    fun updateTitle(title: String) { heading.text = title }
     init {
         setOwnerActivity(activity)
         val lifecycle = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle
@@ -18,18 +20,18 @@ class DesignSheet(activity: Activity, title: String, subtitle: String, saveLabel
         setOnDismissListener { lifecycle?.removeObserver(observer) }
         val root = DesignUi.column(activity).apply { setBackgroundColor(DesignUi.background) }
         val scroll = ScrollView(activity).apply { isFillViewport = true; addView(content) }
-        DesignUi.header(content, title, subtitle, back = { navigateBack?.invoke() ?: dismiss() })
+        heading = DesignUi.header(content, title, subtitle, back = { navigateBack?.invoke() ?: dismiss() })
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val footer = DesignUi.column(activity)
         if (saveButton != null) {
-            footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, 65))
+            footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, 16))
             footer.addView(saveButton, LinearLayout.LayoutParams(-1, DesignUi.dp(activity, 52))); root.addView(footer)
         }
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (android.os.Build.VERSION.SDK_INT >= 30) {
                 val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
                 view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-                if (saveButton != null) footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, if (insets.isVisible(WindowInsets.Type.ime())) 12 else 65))
+                if (saveButton != null) footer.setPadding(DesignUi.dp(activity, 20), DesignUi.dp(activity, 12), DesignUi.dp(activity, 20), DesignUi.dp(activity, if (insets.isVisible(WindowInsets.Type.ime())) 12 else 16))
             } else { @Suppress("DEPRECATION") view.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom) }
             insets
         }
