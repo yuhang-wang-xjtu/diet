@@ -34,6 +34,7 @@ class DesignFlowTest {
     private val screenshots = File("build/design-preview").apply { mkdirs() }
     @Before fun records() {
         context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().clear().putBoolean("notification_asked", true)
+            .putString("last_open_date", java.time.LocalDate.now().toString())
             .putFloat("baseline", 2000f).putFloat("protein_goal", 100f).putFloat("fat_goal", 67f).putFloat("carbs_goal", 250f).commit()
         context.getSharedPreferences("meal_reminders", Context.MODE_PRIVATE).edit().putBoolean("enabled", false).commit()
         Store(context).use { store ->
@@ -267,6 +268,126 @@ class DesignFlowTest {
         assertNotNull(text(root(main), "11 月 6 日，星期五"))
         assertTrue(descendants(root(main)).filterIsInstance<TextView>().none { it.text == "每日营养" || it.text == "手动输入食物" || it.text == "＋ 零食" })
         assertEquals(1, descendants(root(main)).filterIsInstance<TextView>().count { it.text == "营养摄入  ›" })
+        controller.pause().stop().destroy()
+    }
+    private fun assertDate(main: MainActivity, date: java.time.LocalDate) {
+        assertNotNull(text(root(main), date.format(java.time.format.DateTimeFormatter.ofPattern("M 月 d 日，EEEE", java.util.Locale.SIMPLIFIED_CHINESE))))
+    }
+    @Test fun headerArrowsChangeDisplayedRecordsAndSaveToTheSelectedDate() {
+        val controller = activity(0); val main = controller.get()
+        click(descendants(root(main)).single { it.contentDescription == "前一天" })
+        assertDate(main, java.time.LocalDate.parse("2026-11-05")); assertNotNull(text(root(main), "2000"))
+        click(text(root(main), "＋  记录午餐")); click(text(latestSheet().content, "主食")); latestSheet().saveButton!!.performClick()
+        latestSheet().saveButton!!.performClick()
+        Store(context).use { store ->
+            assertEquals(1, store.entries("2026-11-05").size); assertEquals(2, store.entries("2026-11-06").size)
+            assertEquals(FoodCatalog.rice.values.kcal, store.entries("2026-11-05").single().kcal, 1e-10)
+        }
+        assertDate(main, java.time.LocalDate.parse("2026-11-05"))
+        click(descendants(root(main)).single { it.contentDescription == "后一天" })
+        assertDate(main, java.time.LocalDate.parse("2026-11-06")); assertNotNull(text(root(main), "720"))
+        controller.pause().stop().destroy()
+    }
+    @Test fun firstOpenOnANewDayResetsRestoredDateButSameDayRecreationKeepsTheChosenDate() {
+        val today = java.time.LocalDate.now()
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString("last_open_date", today.minusDays(1).toString()).commit()
+        val controller = activity(0)
+        assertDate(controller.get(), today)
+        assertEquals(today.toString(), context.getSharedPreferences("settings", Context.MODE_PRIVATE).getString("last_open_date", null))
+        click(descendants(root(controller.get())).single { it.contentDescription == "前一天" })
+        assertDate(controller.get(), today.minusDays(1))
+        controller.recreate(); assertDate(controller.get(), today.minusDays(1))
+        controller.pause().stop().destroy()
+    }
+    @Test fun returningFromBackgroundOnANewDayUpdatesOnceAndKeepsLaterHistoryBrowsing() {
+        val today = java.time.LocalDate.now()
+        val controller = activity(0)
+        controller.pause()
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString("last_open_date", today.minusDays(1).toString()).commit()
+        controller.resume(); assertDate(controller.get(), today)
+        click(descendants(root(controller.get())).single { it.contentDescription == "前一天" })
+        controller.pause().resume(); assertDate(controller.get(), today.minusDays(1))
+        controller.pause().stop().destroy()
+    }
+    @Test fun historicalReminderTakesPriorityOverNewDayResetOnColdAndWarmLaunches() {
+        val today = java.time.LocalDate.now(); val target = today.minusDays(1)
+        fun reminder() = android.content.Intent(context, MainActivity::class.java).apply {
+            action = MealReminders.OPEN; putExtra("date", target.toString()); putExtra("meal", Meal.DINNER.key)
+        }
+        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        prefs.edit().putString("last_open_date", target.toString()).commit()
+        var controller = Robolectric.buildActivity(MainActivity::class.java, reminder()).create().start().resume().visible()
+        assertNotNull(text(latestSheet().content, "$target / 饮食摄入")); latestSheet().dismiss()
+        controller.pause().stop().destroy()
+        controller = activity(0); controller.pause()
+        prefs.edit().putString("last_open_date", target.toString()).commit()
+        controller.newIntent(reminder()).resume()
+        val sheet = latestSheet(); assertNotNull(text(sheet.content, "$target / 饮食摄入"))
+        assertEquals(Meal.DINNER.ordinal, meal(sheet).selectedItemPosition)
+        click(text(sheet.content, "从分类快捷食物 / 配方填入")); click(text(latestSheet().content, "主食")); latestSheet().saveButton!!.performClick()
+        sheet.saveButton!!.performClick()
+        Store(context).use { store ->
+            val entry = store.entries(target.toString()).single { it.name == FoodCatalog.rice.name }
+            assertEquals(Meal.DINNER.key, entry.meal); assertTrue(store.entries(today.toString()).isEmpty())
+        }
+        controller.pause().stop().destroy()
+    }
+    @Test fun numericImeKeepsExpressionsAndTheContextualSymbolsFollowTheFocusedField() {
+        val controller = activity(0); val main = controller.get()
+        click(text(root(main), "＋  记录午餐")); click(text(latestSheet().content, "＋ 手动输入食物"))
+        val sheet = latestSheet(); layout(root(sheet))
+        val fields = descendants(sheet.content).filterIsInstance<EditText>()
+        val name = fields.single { it.hint.toString() == "食物 / 菜品名称" }
+        assertEquals(android.text.InputType.TYPE_CLASS_TEXT, name.inputType and android.text.InputType.TYPE_MASK_CLASS)
+        fields.filter { it.getTag(R.id.numeric_setting) != null }.forEach { field ->
+            val info = EditorInfo(); assertNotNull(field.onCreateInputConnection(info))
+            assertEquals(android.text.InputType.TYPE_CLASS_NUMBER, info.inputType and android.text.InputType.TYPE_MASK_CLASS)
+            assertTrue(info.inputType and android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL != 0)
+            assertTrue(info.inputType and android.text.InputType.TYPE_NUMBER_FLAG_SIGNED != 0)
+        }
+        name.setText("键盘测试")
+        val energy = fields.single { it.hint.toString() == "参考热量（kcal）" }
+        energy.setText("200"); NumberInput.finish(energy)
+        click(text(sheet.content, "每 100 g 含 200 kcal · 编辑"))
+        val actual = fields.single { it.contentDescription?.toString()?.startsWith("实际食用克数") == true }
+        actual.requestFocus(); actual.setText("17"); actual.setSelection(2)
+        assertEquals(1, descendants(sheet.content).count { it.contentDescription == "算式符号" })
+        click(descendants(sheet.content).single { it.contentDescription == "插入 ÷" })
+        actual.onCreateInputConnection(EditorInfo())!!.commitText("4.18", 1)
+        assertEquals("17÷4.18", actual.text.toString()); assertNull(actual.error)
+        snapshot(root(sheet), "numeric-keyboard-symbols")
+        assertTrue(actual.hasFocus())
+        assertEquals("17÷4.18", actual.text.toString())
+        assertTrue(descendants(sheet.content).single { it.contentDescription == "算式符号" }.getGlobalVisibleRect(android.graphics.Rect()))
+        actual.onEditorAction(EditorInfo.IME_ACTION_DONE)
+        assertFalse(sheet.isShowing)
+        Store(context).use { store -> assertEquals(200.0 * (17.0 / 4.18) / 100, store.entries("2026-11-06").single { it.name == "键盘测试" }.kcal, 1e-12) }
+        controller.pause().stop().destroy()
+    }
+    @Test fun numericInputAllowsPastedCharactersAndRejectsOnlyOnCompletion() {
+        val controller = activity(0); val main = controller.get()
+        val c = LinearLayout(main).apply { orientation = LinearLayout.VERTICAL; isFocusableInTouchMode = true }
+        val first = EditText(main).also { c.addView(it); NumberInput.configure(it, "") }
+        val second = EditText(main).also { c.addView(it); NumberInput.configure(it, "") }
+        main.setContentView(c)
+        var submitted = 0
+        FormKeyboard(c) { submitted++ }
+        first.requestFocus(); first.onCreateInputConnection(EditorInfo())!!.commitText("17/4.18abc", 1)
+        assertEquals("17/4.18abc", first.text.toString()); assertNull(first.error)
+        first.onEditorAction(EditorInfo.IME_ACTION_NEXT)
+        assertNotNull(first.error); assertTrue(first.hasFocus()); assertEquals(0, submitted)
+        first.setText("17/4.18"); first.onEditorAction(EditorInfo.IME_ACTION_NEXT)
+        assertTrue(second.hasFocus()); assertEquals(1, descendants(c).count { it.contentDescription == "算式符号" })
+        second.setText("123.4"); second.setSelection(0, 3); click(descendants(c).single { it.contentDescription == "插入 −" })
+        assertEquals("−.4", second.text.toString()); second.onEditorAction(EditorInfo.IME_ACTION_DONE)
+        assertEquals(-0.4, FoodMath.number(NumberInput.raw(second))!!, 0.0); assertEquals(1, submitted)
+        controller.pause().stop().destroy()
+    }
+    @Test fun newLauncherIntentOnAnAlreadyRunningActivityRefreshesTheDateImmediately() {
+        val controller = activity(0); val today = java.time.LocalDate.now()
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString("last_open_date", today.minusDays(1).toString()).commit()
+        controller.newIntent(android.content.Intent(context, MainActivity::class.java).setAction(android.content.Intent.ACTION_MAIN))
+        assertDate(controller.get(), today)
         controller.pause().stop().destroy()
     }
 }

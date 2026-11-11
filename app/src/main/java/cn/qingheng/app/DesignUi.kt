@@ -76,7 +76,8 @@ object DesignUi {
         minHeight = dp(context, 52); minimumHeight = dp(context, 52)
         setPadding(dp(context, 15), dp(context, 8), dp(context, 15), dp(context, 8)); setOnClickListener { action() }
     }
-    fun header(parent: LinearLayout, title: String, subtitle: String, back: (() -> Unit)? = null, dateAction: (() -> Unit)? = null): TextView {
+    fun header(parent: LinearLayout, title: String, subtitle: String, back: (() -> Unit)? = null, dateAction: (() -> Unit)? = null,
+        previousDate: (() -> Unit)? = null, nextDate: (() -> Unit)? = null): TextView {
         val context = parent.context
         space(parent, 14)
         val brand = row(context)
@@ -91,10 +92,20 @@ object DesignUi {
         val titleView = text(context, title, 31f, bold = true, line = 42)
         space(parent, 10); parent.addView(titleView)
         space(parent, 9)
-        parent.addView(text(context, subtitle, 13f, muted, line = 18).apply {
+        val subtitleView = text(context, subtitle, 13f, muted, line = 18).apply {
             if (dateAction != null) { setOnClickListener { dateAction() }; contentDescription = "$subtitle，点击选择日期" }
-        })
-        space(parent, 17)
+        }
+        if (previousDate != null && nextDate != null) {
+            val dates = row(context).apply { background = shape(context, soft, 13) }
+            fun arrow(label: String, description: String, action: () -> Unit) = button(context, label, false, action).apply {
+                contentDescription = description; textSize = 23f; setPadding(0, 0, 0, 0)
+            }
+            dates.addView(arrow("‹", "前一天", previousDate), LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)))
+            subtitleView.gravity = Gravity.CENTER
+            dates.addView(subtitleView, LinearLayout.LayoutParams(0, dp(context, 48), 1f))
+            dates.addView(arrow("›", "后一天", nextDate), LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)))
+            parent.addView(dates, LinearLayout.LayoutParams(-1, -2)); space(parent, 9)
+        } else { parent.addView(subtitleView); space(parent, 17) }
         return titleView
     }
     fun section(parent: LinearLayout, title: String, before: Int = 22) {

@@ -17,7 +17,9 @@ object NumberInput {
         field.setTag(R.id.numeric_setting, false); field.setTag(R.id.numeric_dirty, false)
     }
     fun configure(field: EditText, initial: String) {
-        field.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        // Advertise a signed decimal keypad without installing a character-filtering DigitsKeyListener.
+        field.keyListener = android.text.method.TextKeyListener.getInstance()
+        field.setRawInputType(InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED)
         field.imeOptions = EditorInfo.IME_ACTION_NEXT
         setRaw(field, initial)
         field.addTextChangedListener(object : android.text.TextWatcher {
@@ -25,7 +27,17 @@ object NumberInput {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { if (field.getTag(R.id.numeric_setting) != true) field.setTag(R.id.numeric_dirty, true) }
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
-        field.setOnFocusChangeListener { _, focused -> if (!focused) finish(field) }
+        field.setOnFocusChangeListener { _, focused ->
+            if (!focused) finish(field)
+            (field.getTag(R.id.form_keyboard) as? FormKeyboard)?.numberFocus(field, focused)
+        }
+    }
+    fun insert(field: EditText, symbol: String) {
+        val start = field.selectionStart.takeIf { it >= 0 } ?: field.text.length
+        val end = field.selectionEnd.takeIf { it >= 0 } ?: start
+        val left = minOf(start, end)
+        field.text.replace(left, maxOf(start, end), symbol)
+        field.setSelection(left + symbol.length)
     }
     fun onFinished(field: EditText, action: () -> Unit) { field.setTag(R.id.numeric_finished, action) }
     @Suppress("UNCHECKED_CAST")

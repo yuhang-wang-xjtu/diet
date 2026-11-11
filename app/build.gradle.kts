@@ -3,7 +3,7 @@ android {
     namespace = "cn.qingheng.app"
     compileSdk = 36
     buildToolsVersion = "35.0.0"
-    defaultConfig { applicationId = "cn.qingheng.app"; minSdk = 26; targetSdk = 35; versionCode = 16; versionName = "0.1.13" }
+    defaultConfig { applicationId = "cn.qingheng.app"; minSdk = 26; targetSdk = 35; versionCode = 17; versionName = "0.1.14" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     testOptions {

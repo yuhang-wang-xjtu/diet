@@ -70,7 +70,6 @@ class MainActivity : ComponentActivity() {
     private fun appLabel(pkg: String): String = try {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
     } catch (_: android.content.pm.PackageManager.NameNotFoundException) { pkg }
-    private val formatter = DateTimeFormatter.ofPattern("M月d日 EEEE", Locale.SIMPLIFIED_CHINESE)
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     private fun fmt(n: Double) = String.format(Locale.US, "%.0f", n)
     private fun kg(n: Double) = String.format(Locale.US, "%.1f", n)
@@ -80,6 +79,7 @@ class MainActivity : ComponentActivity() {
         foodPhotos = FoodPhotoPicker(this)
         if (savedInstanceState == null) prefs.edit().putBoolean("steps_permission_waiting", false).remove("pending_steps_date").apply()
         savedInstanceState?.let { date = LocalDate.parse(it.getString("date")); tab = it.getInt("tab") }
+        refreshOpenDate()
         MealReminders.reschedule(this)
         exactWasAllowed = MealReminders.exactAllowed(this)
         render()
@@ -89,7 +89,17 @@ class MainActivity : ComponentActivity() {
             askNotificationPermission()
         }
     }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleMealIntent(intent) }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if (refreshOpenDate()) render(); setIntent(intent); handleMealIntent(intent) }
+    private fun refreshOpenDate(): Boolean {
+        val today = LocalDate.now()
+        if (prefs.getString("last_open_date", null) != today.toString()) {
+            date = today
+            pageScroll?.scrollTo(0, 0); scrollPositions.fill(0)
+            prefs.edit().putString("last_open_date", today.toString()).apply()
+            return true
+        }
+        return false
+    }
     private fun handleMealIntent(source: Intent) {
         if (source.action != MealReminders.OPEN) return
         val meal = Meal.from(source.getStringExtra("meal"))
@@ -103,6 +113,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         isForeground = true
         if (!::store.isInitialized) return
+        refreshOpenDate()
         val exact = MealReminders.exactAllowed(this)
         if (exact != exactWasAllowed) { MealReminders.reschedule(this); exactWasAllowed = exact }
         render()
@@ -147,7 +158,9 @@ class MainActivity : ComponentActivity() {
         parent.addView(c, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) }); return c
     }
     private fun heading(value: String, sub: String? = null) {
-        DesignUi.header(body, value, sub.orEmpty(), dateAction = if (tab < 3) ({ pickDate() }) else null)
+        DesignUi.header(body, value, sub.orEmpty(), dateAction = if (tab < 3) ({ pickDate() }) else null,
+            previousDate = if (tab == 0) ({ selectDate(date.minusDays(1)) }) else null,
+            nextDate = if (tab == 0) ({ selectDate(date.plusDays(1)) }) else null)
     }
     private fun dateLabel() = date.format(DateTimeFormatter.ofPattern("M 月 d 日，EEEE", Locale.SIMPLIFIED_CHINESE))
     private fun suggestedMeal(): Meal {
@@ -206,14 +219,10 @@ class MainActivity : ComponentActivity() {
         scroll.post { scroll.scrollTo(0, position) }
     }
     private fun selectTab(next: Int) { if (next in 0..3 && next != tab) { tab = next; render() } }
-    private fun dateRow() {
-        val r = row()
-        r.addView(button("‹") { date = date.minusDays(1); render() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        r.addView(text(date.format(formatter), 14f, ink, true).apply { gravity = Gravity.CENTER; setOnClickListener { pickDate() } }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        r.addView(button("›") { date = date.plusDays(1); render() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        body.addView(r); space(body)
+    private fun selectDate(selected: LocalDate) {
+        date = selected; pageScroll?.scrollTo(0, 0); scrollPositions.fill(0); render()
     }
-    private fun pickDate() { DatePickerDialog(this, { _, y, m, d -> date = LocalDate.of(y, m + 1, d); render() }, date.year, date.monthValue - 1, date.dayOfMonth).show() }
+    private fun pickDate() { DatePickerDialog(this, { _, y, m, d -> selectDate(LocalDate.of(y, m + 1, d)) }, date.year, date.monthValue - 1, date.dayOfMonth).show() }
     private fun overview() {
         heading("今日概览", dateLabel())
         val entries = store.entries(date.toString())
