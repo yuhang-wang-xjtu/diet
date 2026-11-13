@@ -94,25 +94,30 @@ data class EntryNutrients(val kcal: Double, val protein: Double?, val carbs: Dou
     fun valid() = listOf(kcal, protein, fat, carbs, sodium).all { it == null || it.isFinite() }
     fun summary() = "${FoodValues.f(kcal)} kcal · 蛋白 ${protein?.let { FoodValues.f(it) } ?: "未知"}g · 脂肪 ${fat?.let { FoodValues.f(it) } ?: "未知"}g · 碳水 ${carbs?.let { FoodValues.f(it) } ?: "未知"}g"
 }
-data class FoodPortion(val basis: Double, val actual: Double, val reference: EntryNutrients, val unit: FoodUnit = FoodUnit.GRAMS) {
+data class FoodPortion(val basis: Double, val actual: Double, val reference: EntryNutrients, val unit: FoodUnit = FoodUnit.GRAMS,
+    val unitGrams: Double? = null, val unitName: String = "份") {
     init { require(basis.isFinite() && basis != 0.0 && actual.isFinite()) }
     val values get() = reference.scale(actual / basis)
 }
-data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference: EntryNutrients?, val unit: FoodUnit = FoodUnit.GRAMS) {
+data class FoodInputDraft(val basis: Double?, val actual: Double?, val reference: EntryNutrients?, val unit: FoodUnit = FoodUnit.GRAMS,
+    val unitGrams: Double? = null, val unitName: String = "份") {
     val defaultAmount get() = if (unit == FoodUnit.PORTIONS) 1.0 else DEFAULT_GRAMS
     companion object {
         const val DEFAULT_GRAMS = 100.0
         val MACRO_ORDER = listOf("protein", "fat", "carbs")
         fun grams(raw: String, default: Double? = DEFAULT_GRAMS): Double? =
             if (raw.isBlank()) default else FoodMath.number(raw)
-        fun fromFood(food: QuickFood, actual: Double? = null) = FoodInputDraft(
-            food.basisGrams?.let { DEFAULT_GRAMS }, actual,
-            food.values.nutrients().let { n -> food.basisGrams?.let { n.scale(DEFAULT_GRAMS / it) } ?: n },
-            if (food.basisGrams == null) FoodUnit.PORTIONS else FoodUnit.GRAMS)
+        fun fromFood(food: QuickFood, actual: Double? = null, preferPortions: Boolean = true): FoodInputDraft {
+            val portions = food.basisGrams == null || preferPortions && food.unitGrams != null && food.unitGrams != 0.0
+            val basis = if (portions) food.unitGrams?.takeIf { food.basisGrams != null } else DEFAULT_GRAMS
+            val reference = food.values.nutrients().let { n -> if (food.basisGrams != null) n.scale(basis!! / food.basisGrams) else n }
+            return FoodInputDraft(basis, actual, reference, if (portions) FoodUnit.PORTIONS else FoodUnit.GRAMS,
+                if (portions) basis else food.unitGrams, food.unitName)
+        }
         fun fromEntry(entry: Entry): FoodInputDraft {
             val p = PortionJson.decode(entry.portion)
             return if (p == null) FoodInputDraft(DEFAULT_GRAMS, DEFAULT_GRAMS, EntryNutrients(entry.kcal, entry.protein, entry.carbs, entry.fat, entry.sodium))
-            else if (p.unit == FoodUnit.PORTIONS) FoodInputDraft(null, p.actual, p.reference.scale(1.0 / p.basis), FoodUnit.PORTIONS)
+            else if (p.unit == FoodUnit.PORTIONS) FoodInputDraft(p.unitGrams, p.actual, p.reference.scale(1.0 / p.basis), FoodUnit.PORTIONS, p.unitGrams, p.unitName)
             else FoodInputDraft(DEFAULT_GRAMS, p.actual, p.reference.scale(DEFAULT_GRAMS / p.basis))
         }
     }

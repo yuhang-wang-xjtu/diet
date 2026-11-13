@@ -132,6 +132,11 @@ class Store(context: Context) : SQLiteOpenHelper(context, "qingheng.db", null, 8
         else food.copy(id = writableDatabase.insertOrThrow("quick_foods", null, values))
     }
     fun deleteQuickFood(food: QuickFood) { writableDatabase.delete("quick_foods", "id=?", arrayOf(food.id.toString())) }
+    fun importQuickFoods(foods: List<QuickFood>) {
+        val db = writableDatabase; db.beginTransaction()
+        try { foods.forEach { saveQuickFood(it.copy(id = 0)) }; db.setTransactionSuccessful() }
+        finally { db.endTransaction() }
+    }
     fun moveQuickFoods(ids: Set<Long>, category: String) {
         require(category.isNotBlank() && category.length <= 30)
         val db = writableDatabase; db.beginTransaction()

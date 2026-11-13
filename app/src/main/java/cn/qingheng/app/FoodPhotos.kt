@@ -47,6 +47,16 @@ object FoodPhotos {
         if (bitmap == null) view.setImageResource(R.drawable.food_placeholder) else view.setImageBitmap(bitmap)
     }
     fun fallback(food: QuickFood) = if (food.id == -1L) "design:rice" else FoodIcons.defaultFor(food)
+    fun exportBytes(context: Context, key: String): ByteArray? = file(context, key)?.takeIf { it.isFile }?.readBytes()
+    fun restoreBytes(context: Context, bytes: ByteArray): String {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "菜品图片无法识别" }
+        val key = "${UUID.randomUUID()}.jpg"
+        val destination = file(context, key)!!
+        destination.parentFile!!.mkdirs(); destination.writeBytes(bytes)
+        return key
+    }
     fun import(context: Context, uri: Uri): String {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

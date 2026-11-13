@@ -7,12 +7,20 @@ import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.*
 
 class FoodManagerActivity : ComponentActivity() {
     private lateinit var store: Store
     private lateinit var photos: FoodPhotoPicker
     private var category = "全部"
     private var query = ""
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var busy = false
+    private val exporter = registerForActivityResult(object : ActivityResultContracts.CreateDocument() {
+        override fun createIntent(context: android.content.Context, input: String): android.content.Intent = super.createIntent(context, input).setType("application/json")
+    }) { uri -> if (uri != null) exportFoods(uri) }
+    private val importer = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) readFoods(uri) }
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); store = Store(this); photos = FoodPhotoPicker(this)
@@ -28,6 +36,11 @@ class FoodManagerActivity : ComponentActivity() {
         header.addView(TextView(this).apply { text = "管理我的菜品"; textSize = 22f; setTextColor(Color.rgb(31, 53, 44)); setPadding(dp(12), dp(12), 0, 0) })
         root.addView(header)
         root.addView(TextView(this).apply { text = "编辑分类、图片、营养和配方。旧菜品保留在“原有菜品”；修改快捷项不改写历史记餐。"; textSize = 13f; setPadding(0, dp(8), 0, dp(8)) })
+        val transfer = LinearLayout(this)
+        transfer.addView(DesignUi.button(this, "导入菜品表", false) { importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }.apply { isEnabled = !busy }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        transfer.addView(DesignUi.button(this, "导出菜品表", false) { exporter.launch("轻衡-菜品-${java.time.LocalDate.now()}.json") }.apply { isEnabled = !busy }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+        root.addView(transfer)
+        if (busy) root.addView(DesignUi.text(this, "正在处理菜品文件…", 13f, DesignUi.muted))
         val foods = store.quickFoods(); val categories = listOf("全部") + FoodCategories.categories(foods).filter { c -> foods.any { FoodCategories.of(it) == c } }
         if (category !in categories) category = "全部"
         val picker = Spinner(this).apply { adapter = FoodCategoryAdapter(this@FoodManagerActivity, categories); setSelection(categories.indexOf(category)); minimumHeight = dp(48) }; root.addView(picker)
@@ -88,5 +101,54 @@ class FoodManagerActivity : ComponentActivity() {
             else { store.moveQuickFoods(foods.map { it.id }.toSet(), value); dialog.dismiss(); category = value; render() }
         } }; dialog.show(); FormKeyboard(field) { dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick() }
     }
-    override fun onDestroy() { store.close(); super.onDestroy() }
+    private fun exportFoods(uri: android.net.Uri) {
+        scope.launch {
+            busy = true; render()
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    val foods = store.quickFoods()
+                    val images = FoodArchive.imageKeys(foods).mapNotNull { key -> FoodPhotos.exportBytes(this@FoodManagerActivity, key)?.let { key to it } }.toMap()
+                    val json = FoodArchive.encode(foods, images)
+                    (contentResolver.openOutputStream(uri, "wt") ?: error("无法创建文件")).bufferedWriter(Charsets.UTF_8).use { it.write(json) }
+                    foods.size
+                }
+                Toast.makeText(this@FoodManagerActivity, "已导出${count}道菜品（含配方与图片）", Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Toast.makeText(this@FoodManagerActivity, "导出失败：${e.message}", Toast.LENGTH_LONG).show() }
+            finally { busy = false; if (!isDestroyed) render() }
+        }
+    }
+    private fun readFoods(uri: android.net.Uri) {
+        scope.launch {
+            busy = true; render()
+            try {
+                val document = withContext(Dispatchers.IO) {
+                    val raw = (contentResolver.openInputStream(uri) ?: error("无法读取文件")).bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    FoodArchive.decode(raw)
+                }
+                if (document.foods.isEmpty()) Toast.makeText(this@FoodManagerActivity, "文件中没有菜品", Toast.LENGTH_SHORT).show()
+                else AlertDialog.Builder(this@FoodManagerActivity).setTitle("导入${document.foods.size}道菜品？")
+                    .setMessage("将新增菜品，不覆盖现有菜品或饮食记录。同一文件重复导入会新增副本。\n\n" + document.foods.take(8).joinToString("、") { it.name })
+                    .setNegativeButton("取消", null).setPositiveButton("导入") { _, _ -> importFoods(document) }.show()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Toast.makeText(this@FoodManagerActivity, "导入失败：${e.message}", Toast.LENGTH_LONG).show() }
+            finally { busy = false; if (!isDestroyed) render() }
+        }
+    }
+    private fun importFoods(document: FoodArchive.Document) {
+        scope.launch {
+            busy = true; render()
+            try {
+                withContext(Dispatchers.IO) {
+                    val images = document.images.mapValues { (_, bytes) -> FoodPhotos.restoreBytes(this@FoodManagerActivity, bytes) }
+                    store.importQuickFoods(document.foods.map { FoodArchive.restoreImages(it, images) })
+                }
+                category = "全部"; query = ""
+                Toast.makeText(this@FoodManagerActivity, "已导入${document.foods.size}道菜品", Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Toast.makeText(this@FoodManagerActivity, "导入失败：${e.message}", Toast.LENGTH_LONG).show() }
+            finally { busy = false; if (!isDestroyed) render() }
+        }
+    }
+    override fun onDestroy() { scope.cancel(); store.close(); super.onDestroy() }
 }

@@ -31,12 +31,13 @@ object PortionJson {
     fun encode(p: FoodPortion): String = JSONObject().apply {
         put("basis", p.basis); put("actual", p.actual); put("kcal", p.reference.kcal)
         put("unit", p.unit.name)
+        put("unitGrams", p.unitGrams ?: JSONObject.NULL); put("unitName", p.unitName)
         listOf("protein" to p.reference.protein, "carbs" to p.reference.carbs, "fat" to p.reference.fat, "sodium" to p.reference.sodium).forEach { (k, v) -> put(k, v ?: JSONObject.NULL) }
     }.toString()
     fun decode(raw: String): FoodPortion? = try {
         val j = JSONObject(raw)
         fun value(key: String) = if (j.isNull(key)) null else j.getDouble(key)
         FoodPortion(j.getDouble("basis"), j.getDouble("actual"), EntryNutrients(j.getDouble("kcal"), value("protein"), value("carbs"), value("fat"), value("sodium")),
-            FoodUnit.valueOf(j.optString("unit", FoodUnit.GRAMS.name)))
+            FoodUnit.valueOf(j.optString("unit", FoodUnit.GRAMS.name)), value("unitGrams"), j.optString("unitName", "份"))
     } catch (_: Exception) { null }
 }

@@ -67,4 +67,28 @@ class FoodCompatibilityTest {
         assertTrue(FoodPortion(1.0, 100000.0, EntryNutrients(100.0, null, null, null, null)).values.valid())
         assertFalse(FoodPortion(1.0, 1e308, EntryNutrients(1e308, null, null, null, null)).values.valid())
     }
+    @Test fun customUnitWeightIsUsedWhenChoosingFoodAndSurvivesReopening() {
+        val food = QuickFood(name = "套餐", basisGrams = 250.0, values = FoodValues(500.0, 25.0, 50.0, 10.0), unitName = "份", unitGrams = 150.0)
+        val draft = FoodInputDraft.fromFood(food)
+        assertEquals(FoodUnit.PORTIONS, draft.unit); assertEquals(150.0, draft.basis!!, 0.0)
+        val portion = FoodPortion(1.0, 2.0, draft.reference!!, draft.unit, draft.unitGrams, draft.unitName)
+        assertEquals(food.portion(2.0, FoodUnit.PORTIONS).kcal, portion.values.kcal, 0.0)
+        val snapshot = PortionJson.encode(portion)
+        val reopened = FoodInputDraft.fromEntry(Entry(date = "2026-11-13", kind = "food", name = food.name, kcal = portion.values.kcal, portion = snapshot))
+        assertEquals(FoodUnit.PORTIONS, reopened.unit); assertEquals(2.0, reopened.actual!!, 0.0)
+        assertEquals(150.0, reopened.unitGrams!!, 0.0); assertEquals(draft.reference, reopened.reference)
+        assertEquals(FoodUnit.GRAMS, FoodInputDraft.fromFood(food, preferPortions = false).unit)
+    }
+    @Test fun exportedFoodsKeepPreciseNutritionRecipesAndPictureBytesWithoutReusingIds() {
+        val image = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg"
+        val food = FoodJson.decode(legacy, 45).copy(image = image)
+        val recipe = FoodCatalog.tomatoEgg.copy(id = 72, ingredients = listOf(FoodIngredient(food, 1.25, FoodUnit.PORTIONS)))
+        val archive = FoodArchive.decode(FoodArchive.encode(listOf(food, recipe), mapOf(image to byteArrayOf(1, 2, 3))))
+        assertEquals(listOf(0L, 0L), archive.foods.map { it.id })
+        assertEquals(food.copy(id = 0), archive.foods[0]); assertEquals(recipe.ingredients, archive.foods[1].ingredients)
+        assertArrayEquals(byteArrayOf(1, 2, 3), archive.images.getValue(image))
+        val restored = FoodArchive.restoreImages(archive.foods[1], mapOf(image to "restored.jpg"))
+        assertEquals("restored.jpg", restored.ingredients.single().food.image)
+        assertEquals(food.values, restored.ingredients.single().food.values)
+    }
 }
